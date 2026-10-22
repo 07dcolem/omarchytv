@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """omarchy-tv: Omarchy-style front-end for OmarchyTV, built on omarchy-link.
 
-  omarchy-tv [menu]                     Walker menu (gum / numbered list without Walker)
+  omarchy-tv [menu]                     Omarchy menu (omarchy-menu-select; Walker on older Omarchy; gum / numbered list over SSH)
   omarchy-tv status | pair | remote KEY | cast [TARGET]
   omarchy-tv screen start [--audio] | screen stop     live "Schermo PC" (opt-in, H.264 MPEG-TS over the link)
   omarchy-tv themes list | push [NAME|--all] | select NAME [BG] | delete NAME

@@ -1,4 +1,7 @@
-"""Menus and output in the Omarchy style: Walker (dmenu) > gum > plain, colours from the active theme."""
+"""Menus and output in the Omarchy style, colours from the active theme.
+
+Menu order: omarchy-menu-select (Omarchy 4.5+, the Quickshell menu) > walker --dmenu (older Omarchy) > gum > plain.
+"""
 import os, re, shutil, subprocess
 from pathlib import Path
 
@@ -17,19 +20,64 @@ def colors() -> dict:
     return out
 
 
+OMARCHY_BIN = Path.home() / ".local/share/omarchy/bin"
+
+
+def _menu_select() -> str | None:
+    """omarchy-menu-select on PATH, else in ~/.local/share/omarchy/bin (where Omarchy installs it)."""
+    found = shutil.which("omarchy-menu-select")
+    if found:
+        return found
+    f = OMARCHY_BIN / "omarchy-menu-select"
+    return str(f) if f.is_file() and os.access(f, os.X_OK) else None
+
+
+def _graphical() -> bool:
+    """True inside the Omarchy desktop, also when started from a Hyprland keybind without WAYLAND_DISPLAY.
+    Over SSH (no local Wayland/Hyprland session in the environment) the text menus are used."""
+    e = os.environ
+    if e.get("WAYLAND_DISPLAY") or e.get("HYPRLAND_INSTANCE_SIGNATURE"):
+        return True
+    if e.get("SSH_CONNECTION") or e.get("SSH_TTY"):
+        return False
+    return e.get("XDG_SESSION_TYPE") == "wayland" or bool(e.get("XDG_RUNTIME_DIR") and e.get("XDG_CURRENT_DESKTOP"))
+
+
+def _omarchy_env() -> dict:
+    """omarchy-menu-select calls omarchy-shell, so its bin dir must be on PATH even if ours lacks it."""
+    env = dict(os.environ)
+    if OMARCHY_BIN.is_dir() and str(OMARCHY_BIN) not in env.get("PATH", "").split(os.pathsep):
+        env["PATH"] = str(OMARCHY_BIN) + os.pathsep + env.get("PATH", "")
+    return env
+
+
 def choose(prompt: str, items: list[str]) -> str | None:
     data = "\n".join(items)
-    if shutil.which("walker") and os.environ.get("WAYLAND_DISPLAY"):
+    gui = _graphical()
+    sel = _menu_select() if gui else None
+    if sel:
+        # Interface (Omarchy 4.5): omarchy-menu-select <prompt> [option...] [-- --width N --maxheight N ...]
+        # prints the chosen label; exit 1 = cancelled, exit 2 = the Omarchy shell could not be reached.
+        r = subprocess.run([sel, prompt, *items, "--", "--width", "400"], text=True, capture_output=True,
+                           env=_omarchy_env())
+        if r.returncode == 0:
+            return r.stdout.strip().split("\t")[0] or None
+        if r.returncode == 1:
+            return None
+    if gui and shutil.which("walker"):
         r = subprocess.run(["walker", "--dmenu", "--width", "295", "--minheight", "1", "--maxheight", "630", "-p", prompt],
                            input=data, text=True, capture_output=True)
         return r.stdout.strip() or None
-    if shutil.which("gum"):
+    if shutil.which("gum") and os.isatty(0):
         r = subprocess.run(["gum", "choose", "--header", prompt, "--cursor.foreground", colors()["accent"], *items],
                            text=True, stdout=subprocess.PIPE)
         return r.stdout.strip() or None
     for i, it in enumerate(items, 1):
         print(f"{i}) {it}")
-    s = input(prompt + " ")
+    try:
+        s = input(prompt + " ")
+    except EOFError:
+        return None
     return items[int(s) - 1] if s.isdigit() and 0 < int(s) <= len(items) else None
 
 

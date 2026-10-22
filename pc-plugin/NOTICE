@@ -2,5 +2,5 @@ OmarchyTV PC plugin (omarchy-link + omarchy-tv)
 Copyright (c) 2026 Marco Porro (OmarchyTV), MIT, see LICENSE.
 Python standard library only. Works with Omarchy (https://github.com/basecamp/omarchy, MIT, (c) David Heinemeier Hansson);
 reads the active theme from the local install, nothing of Omarchy is redistributed here.
-Optional external tools (not bundled): ffmpeg, gpu-screen-recorder, wf-recorder, catt, gum, Walker, android-tools.
+Optional external tools (not bundled): ffmpeg, gpu-screen-recorder, wf-recorder, catt, gum, Walker, Omarchy's omarchy-menu-select (called, not bundled), android-tools.
 "Omarchy" is the Omarchy project branding; unofficial project.
