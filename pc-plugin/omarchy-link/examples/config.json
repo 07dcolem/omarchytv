@@ -1,0 +1,41 @@
+{
+  "themeSync": true,
+  "wallpaperSync": true,
+  "pcPane": true,
+  "aiCredits": true,
+  "aiSourcesFromTv": true,
+  "aiRefreshMinutes": 15,
+  "assistant": true,
+  "allowOtherSubnets": false,
+  "actions": {
+    "lock": {
+      "label": "Lock PC",
+      "exec": [
+        "omarchy-system-lock"
+      ],
+      "confirm": true
+    },
+    "screensaver": {
+      "label": "Screensaver",
+      "exec": [
+        "omarchy-launch-screensaver"
+      ],
+      "confirm": false
+    }
+  },
+  "castPrefer": "cast",
+  "castDevice": null,
+  "castServe": false,
+  "agentMonitor": {
+    "enabled": false,
+    "agents": null,
+    "hideProjects": []
+  },
+  "agentControlFromTv": false,
+  "agentConfirm": true,
+  "agentToolApprovalFromTv": false,
+  "prompt": {
+    "user": "user",
+    "host": "omarchy"
+  }
+}

@@ -1,0 +1,8 @@
+name: Feature request
+description: Idea / Proposta (new features are optional and off by default)
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes: {label: "What and why / Cosa e perché"}
+    validations: {required: true}

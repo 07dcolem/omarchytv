@@ -1,0 +1,623 @@
+package com.omarchytv.home;
+
+import android.content.Context;
+import android.graphics.Color;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * Launcher settings, read from an optional local JSON file that overrides res/values/config.xml.
+ * File: <external files dir>/omarchytv.json, i.e. /sdcard/Android/data/com.omarchytv.home/files/omarchytv.json
+ * (writable over adb without root; a future LAN companion such as "Omarchy Link" writes the same file).
+ * The home screen re-reads it on every resume when its modification time changed. Schema: see PLUGINS.md.
+ */
+final class LauncherConfig {
+
+    static final String FILE_NAME = "omarchytv.json";
+
+    final List<String> dock;
+    /** Saved order of the non-dock apps (package names), written by move mode. */
+    final List<String> order;
+    final List<String> hidden;
+    /** "auto" (follow the TV), "en", "it", "de". */
+    final String language;
+    /** Info panes shown top right: "clock", "sysinfo", "weather". */
+    final List<String> panes;
+    final double weatherLat, weatherLon;
+    /** AI usage pushed by the PC plugin (omarchytv.json "ai"); the TV never holds API keys. */
+    final List<AiEntry> ai;
+    /** Omarchy-style web apps (omarchytv.json "webapps"); default: X. */
+    final List<WebApp> webapps;
+    /** "assistant" (default: the mic / Search key stays with Google Assistant) or "launcher" (opens > search on Home). */
+    final String voiceKey;
+
+    static final class WebApp {
+        final String id, name, url, icon, ua;
+
+        WebApp(String id, String name, String url, String icon, String ua) {
+            this.id = id;
+            this.name = name;
+            this.url = url;
+            this.icon = icon;
+            this.ua = ua;
+        }
+    }
+
+    static String slug(String s) {
+        String out = s.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("(^-|-$)", "");
+        return out.isEmpty() ? "app" : out;
+    }
+
+    /** "> ask" assistant: providers announced by the PC (link.aiProviders), chosen provider, TTS, optional colour key. */
+    final List<Provider> aiProviders;
+    final String assistantProvider, askKey;
+    final boolean assistantTts;
+
+    static final class Provider {
+        final String id, name;
+
+        Provider(String id, String name) {
+            this.id = id;
+            this.name = name;
+        }
+    }
+
+    /** A pane pushed by the PC (PUT /v1/widgets → link.panes). Text only. */
+    static final class PcPane {
+        final String id, title;
+        final int ttl;
+        final List<String[]> lines;
+
+        PcPane(String id, String title, int ttl, List<String[]> lines) {
+            this.id = id;
+            this.title = title;
+            this.ttl = ttl;
+            this.lines = lines;
+        }
+    }
+
+    /** A shortcut pushed by the PC (link.shortcuts): type app | view | pc. */
+    static final class Shortcut {
+        final String id, label, type, pkg, uri, command;
+
+        Shortcut(String id, String label, String type, String pkg, String uri, String command) {
+            this.id = id;
+            this.label = label;
+            this.type = type;
+            this.pkg = pkg;
+            this.uri = uri;
+            this.command = command;
+        }
+    }
+
+    final List<PcPane> pcPanes;
+    final List<Shortcut> shortcuts;
+    /** Unix seconds of the last PUT /v1/widgets (link.widgetsAt), 0 if unknown. */
+    final long widgetsAt;
+    /** omarchytv.json "pcWidgets": {"panes": true, "shortcuts": true, "overflow": "row2"|"skip", "hidden": [ids]}. */
+    final boolean pcPanesOn, shortcutsOn;
+    final String paneOverflow;
+    final List<String> hiddenPcPanes;
+
+    /** Omarchy Link server on/off (omarchytv.json "link": {"enabled": false}); default on. */
+    final boolean linkEnabled;
+    /** AI pane when no PC is connected and the data is old: "stale" (dim, "pc offline · 3h ago") or "hide". */
+    final String aiOffline;
+    /** Unix seconds of the last PUT /v1/ai (omarchytv.json "aiAt"), 0 if never. */
+    final long aiAt;
+    /** Everything except the keys the Link service rewrites often; equal = no rebuild needed. */
+    final String restSig;
+    /** Everything the panes/menus show from the PC except the agent list (which updates in place). */
+    final String dataSig;
+    /** Unix seconds of the last PUT /v1/agents (link.agentsAt), 0 = this TV never saw the agent monitor. */
+    final long agentsAt;
+
+    /** "> tv" section with the single Live TV tile (omarchytv.json "tv": {"enabled": true}). */
+    final boolean tvEnabled;
+
+    /**
+     * AI-pane sources the PC can mirror (omarchytv.json "aiSources", pushed with PUT /v1/ai). Present only when
+     * the PC accepts the "ai_sources" event; the TV then shows one switch per source. Ids are whatever the PC sends.
+     */
+    final List<AiSource> aiSources;
+
+    static final class AiSource {
+        final String id, name;
+        final boolean enabled, available;
+
+        AiSource(String id, String name, boolean enabled, boolean available) {
+            this.id = id;
+            this.name = name;
+            this.enabled = enabled;
+            this.available = available;
+        }
+    }
+
+    private static double num(JSONObject o, String key, double fallback) {
+        if (!o.has(key)) return fallback;
+        if (o.isNull(key)) return Double.NaN;
+        return o.optDouble(key, Double.NaN);
+    }
+
+    static final class AiEntry {
+        final String name, unit;
+        final double used, limit;
+        /** Epoch ms, or 0 when missing. */
+        final long resetsAt, updatedAt;
+
+        AiEntry(String name, double used, double limit, String unit, long resetsAt, long updatedAt) {
+            this.name = name;
+            this.used = used;
+            this.limit = limit;
+            this.unit = unit;
+            this.resetsAt = resetsAt;
+            this.updatedAt = updatedAt;
+        }
+
+        /** PC's own one-line text (mirrored bar widgets), or "". */
+        String detail = "";
+        /** 0..1 left, from the PC; NaN when not sent. */
+        double percentRemaining = Double.NaN;
+
+        /** "used" is JSON null / missing: show "?" (never 0). */
+        boolean usedUnknown() {
+            return Double.isNaN(used);
+        }
+
+        /** 0..1, -1 when there is no limit to compare with, or -2 when a number is unknown ("?"). */
+        double fraction() {
+            if (!Double.isNaN(percentRemaining)) return Math.max(0, Math.min(1, 1 - percentRemaining));
+            if (Double.isNaN(used)) return -2;
+            if ("%".equals(unit)) return Double.isNaN(limit) ? Math.max(0, Math.min(1, used / 100)) : Math.max(0, Math.min(1, used / (limit > 0 ? limit : 100)));
+            if (Double.isNaN(limit)) return -2;
+            return limit > 0 ? Math.max(0, Math.min(1, used / limit)) : -1;
+        }
+    }
+
+    /** Epoch seconds, epoch ms, or an ISO-8601 string ("2026-10-19T00:10:00Z", with offset too). 0 if unknown. */
+    static long parseTime(Object o) {
+        try {
+            if (o instanceof Number) {
+                long v = ((Number) o).longValue();
+                return v < 100_000_000_000L ? v * 1000L : v;
+            }
+            if (o instanceof String && !((String) o).isEmpty()) {
+                String s = ((String) o).trim();
+                if (s.matches("\\d+")) return parseTime(Long.parseLong(s));
+                return java.time.OffsetDateTime.parse(s).toInstant().toEpochMilli();
+            }
+        } catch (Exception ignored) {
+        }
+        return 0L;
+    }
+    final String weatherPlace;
+    final String wallpaper;          // "omarchy", "procedural", or an absolute image path
+    /** v2.10: which of the current theme's official backgrounds (assets/wallpapers/<theme>/), like Omarchy next-background. */
+    final int wallpaperBg;
+    /** The resolved Omarchy theme (see Theme). */
+    final Theme theme;
+    final int accent;                // focus border start, walker border, active workspace underline
+    final int accent2;               // focus border end, "TV" gradient end
+    final String logo;               // "omarchy-tv" (default), "omarchy" or "original" (see Art)
+    final String screensaverArt;     // defaults to logo
+    final boolean screensaverClock;
+    /** v2.9: screensaver.txt pushed by the PC (link.screensaver, PUT /v1/screensaver); "" = OMARCHY TV logo. */
+    final String screensaverText;
+    /** Logo width as a share of the screen: "small" 45%, "medium" 56%, "large" 68% (default). */
+    final String screensaverSize;
+    /** Launcher UI size: "small", "medium" (default), "large". */
+    final String uiSize;
+    /** Hyprland-style geometry, adjustable in settings: text scale, tile scale, gaps (dp), border (dp). */
+    final float fontScale, tileScale;
+    /**
+     * Layout → App size (geometry "appSize"): large / medium / small / compact = 4 / 5 / 6 / 7 tiles per row.
+     * The base banner shrinks with the column count (198dp × 4 / columns, 16:9); tileScale stays a fine adjust.
+     */
+    final String appSize;
+    final int columns;
+    static final String[] APP_SIZES = {"large", "medium", "small", "compact"};
+    final int gapDp, borderDp;
+    /** Settings → Layout → Transparency: 0-60 % for pane / menu / header backgrounds (see Surfaces). */
+    final int transparency;
+    /** Layout → Wallpaper dimming: "off" (default: wallpaper untouched, like the Omarchy desktop), "light", "medium". */
+    final String wallpaperDim;
+    /** Screensaver: minutes of no remote input on the home screen before it shows (1/2/5/10/15). Legacy. */
+    final int screensaverIdleMin;
+    /** v2.10: seconds of no remote input on the home before the screensaver (60/150/300/600; 0 = never). Default 150 (Omarchy). */
+    final int screensaverIdleSec;
+    /** v2.10: animated OMARCHY TV logo on home open (default on). */
+    final boolean logoAnim;
+    /** v2.10: text tiles (terminal style) instead of banners (default off). */
+    final boolean textTiles;
+    /** v2.10: home widgets on/off: weather, pc, ai, deploys (default all on). */
+    final boolean wWeather, wPc, wAi, wDeploys, wTerm;
+    /** v2.10 "Disponi riquadri": panel id -> {cellX, cellY} offset on a 12x8 screen grid (empty = default layout). */
+    final java.util.Map<String, int[]> panelPos;
+    /** v2.10: Send to TV (cast) is off until switched on (omarchytv.json "cast": {"enabled": true}). */
+    final boolean castEnabled;
+    /** Screensaver: also offer it as the TV's system screensaver (DreamService components enabled). */
+    final boolean screensaverSystem;
+    /** Home prompt "<user>@<host>:~$" (omarchytv.json "prompt": {"user", "host"}), sanitised by {@link #promptPart}. */
+    final String promptUser, promptHost;
+    /** Widget ids in bar order, e.g. "omarchy.clock". Parsed and kept for the plugin contract; see PLUGINS.md. */
+    final List<String> widgets;
+    final long sourceModified;
+
+    private static LauncherConfig cached;
+
+    private LauncherConfig(Context c, JSONObject j, long modified) {
+        dock = strings(j, "dock", Arrays.asList(c.getResources().getStringArray(R.array.dock_apps)));
+        hidden = strings(j, "hidden", Arrays.asList(c.getResources().getStringArray(R.array.hidden_apps)));
+        order = strings(j, "order", Collections.<String>emptyList());
+        language = j != null ? j.optString("language", "auto").trim() : "auto";
+        panes = strings(j, "panes", Arrays.asList(c.getResources().getStringArray(R.array.default_panes)));
+        List<AiEntry> aiList = new ArrayList<>();
+        JSONArray aa = j != null ? j.optJSONArray("ai") : null;
+        if (aa != null) {
+            for (int i = 0; i < aa.length() && aiList.size() < 6; i++) {
+                JSONObject e = aa.optJSONObject(i);
+                if (e == null || e.optString("name").trim().isEmpty()) continue;
+                // JSON null means "unknown" (PROTOCOL.md §6): keep it as NaN, shown as "?", never as 0.
+                AiEntry en = new AiEntry(e.optString("name").trim(), num(e, "used", 0), num(e, "limit", 0),
+                        e.optString("unit", "").trim(), parseTime(e.opt("resetsAt")), parseTime(e.opt("updatedAt")));
+                en.detail = e.optString("detail", "").trim();
+                if (e.has("percentRemaining") && !e.isNull("percentRemaining")) en.percentRemaining = e.optDouble("percentRemaining", Double.NaN);
+                aiList.add(en);
+            }
+        }
+        ai = Collections.unmodifiableList(aiList);
+        List<AiSource> srcs = new ArrayList<>();
+        JSONArray sa = j != null ? j.optJSONArray("aiSources") : null;
+        if (sa != null) {
+            for (int i = 0; i < sa.length() && srcs.size() < 16; i++) {
+                JSONObject o = sa.optJSONObject(i);
+                if (o == null || o.optString("id").isEmpty()) continue;
+                srcs.add(new AiSource(o.optString("id"), o.optString("name", o.optString("id")), o.optBoolean("enabled"),
+                        o.optBoolean("available", true)));
+            }
+        }
+        aiSources = Collections.unmodifiableList(srcs);
+        JSONObject lkc = j != null ? j.optJSONObject("link") : null;
+        screensaverText = lkc != null ? lkc.optString("screensaver", "") : "";
+        List<PcPane> pp = new ArrayList<>();
+        JSONArray lpa = lkc != null ? lkc.optJSONArray("panes") : null;
+        if (lpa != null) {
+            for (int i = 0; i < lpa.length() && pp.size() < 8; i++) {
+                JSONObject o = lpa.optJSONObject(i);
+                if (o == null || o.optString("id").isEmpty()) continue;
+                List<String[]> ls = new ArrayList<>();
+                JSONArray la = o.optJSONArray("lines");
+                for (int k = 0; la != null && k < la.length() && ls.size() < 8; k++) {
+                    JSONObject l = la.optJSONObject(k);
+                    if (l != null) ls.add(new String[]{l.optString("label", ""), l.optString("value", "")});
+                }
+                pp.add(new PcPane(o.optString("id"), o.optString("title", o.optString("id")), o.optInt("ttl", 180), ls));
+            }
+        }
+        pcPanes = Collections.unmodifiableList(pp);
+        List<Shortcut> sc = new ArrayList<>();
+        JSONArray lsa = lkc != null ? lkc.optJSONArray("shortcuts") : null;
+        if (lsa != null) {
+            for (int i = 0; i < lsa.length() && sc.size() < 16; i++) {
+                JSONObject o = lsa.optJSONObject(i);
+                JSONObject a = o != null ? o.optJSONObject("action") : null;
+                if (a == null) continue;
+                String type = a.optString("type");
+                if (!type.equals("app") && !type.equals("view") && !type.equals("pc")) continue;
+                sc.add(new Shortcut(o.optString("id"), o.optString("label", o.optString("id")), type,
+                        a.optString("package", ""), a.optString("uri", ""), a.optString("command", "")));
+            }
+        }
+        shortcuts = Collections.unmodifiableList(sc);
+        widgetsAt = lkc != null ? lkc.optLong("widgetsAt", 0) : 0;
+        JSONObject wg = j != null ? j.optJSONObject("pcWidgets") : null;
+        pcPanesOn = wg == null || wg.optBoolean("panes", true);
+        shortcutsOn = wg == null || wg.optBoolean("shortcuts", true);
+        paneOverflow = wg != null && "skip".equals(wg.optString("overflow")) ? "skip" : "row2";
+        hiddenPcPanes = strings(wg, "hidden", Collections.<String>emptyList());
+        linkEnabled = lkc == null || lkc.optBoolean("enabled", true);
+        JSONObject ap = j != null ? j.optJSONObject("aiPane") : null;
+        aiOffline = ap != null && "hide".equals(ap.optString("offline")) ? "hide" : "stale";
+        aiAt = j != null ? j.optLong("aiAt", 0) : 0;
+        StringBuilder sig = new StringBuilder();
+        if (j != null) {
+            for (java.util.Iterator<String> it = j.keys(); it.hasNext(); ) {
+                String k = it.next();
+                if (k.equals("ai") || k.equals("aiAt") || k.equals("aiSources")) continue;
+                Object v = j.opt(k);
+                if (k.equals("link") && v instanceof JSONObject) {
+                    // only link.enabled matters for the screen; pcs/panes/providers change without a rebuild
+                    v = ((JSONObject) v).opt("enabled");
+                }
+                sig.append(k).append('=').append(v).append('\u0001');
+            }
+        }
+        restSig = sig.toString();
+        JSONObject lk2 = j != null ? j.optJSONObject("link") : null;
+        agentsAt = lk2 != null ? lk2.optLong("agentsAt", 0) : 0;
+        StringBuilder ds = new StringBuilder();
+        if (j != null) ds.append(j.opt("ai")).append('\u0001').append(j.opt("aiAt")).append('\u0001').append(j.opt("aiSources")).append('\u0001');
+        if (lk2 != null) {
+            for (java.util.Iterator<String> it = lk2.keys(); it.hasNext(); ) {
+                String k = it.next();
+                if (!k.equals("agents") && !k.equals("agentsAt")) ds.append(k).append('=').append(lk2.opt(k)).append('\u0001');
+            }
+        }
+        dataSig = ds.toString();
+        List<WebApp> web = new ArrayList<>();
+        JSONArray wa2 = j != null ? j.optJSONArray("webapps") : null;
+        if (wa2 == null) {
+            web.add(new WebApp("x", "X", "https://x.com", "", "mobile"));
+        } else {
+            java.util.Set<String> ids = new java.util.HashSet<>();
+            for (int i = 0; i < wa2.length() && web.size() < 50; i++) {
+                JSONObject o = wa2.optJSONObject(i);
+                if (o == null) continue;
+                String url = o.optString("url").trim(), name = o.optString("name").trim();
+                if (!(url.startsWith("https://") || url.startsWith("http://")) || name.isEmpty()) continue;
+                String id = slug(o.optString("id", name));
+                if (!ids.add(id)) continue;
+                web.add(new WebApp(id, name, url, o.optString("icon", "").trim(), "desktop".equals(o.optString("ua")) ? "desktop" : "mobile"));
+            }
+        }
+        webapps = Collections.unmodifiableList(web);
+        List<Provider> provs = new ArrayList<>();
+        JSONObject lk = j != null ? j.optJSONObject("link") : null;
+        JSONArray pa = lk != null ? lk.optJSONArray("aiProviders") : null;
+        if (pa != null) {
+            for (int i = 0; i < pa.length() && provs.size() < 16; i++) {
+                JSONObject o = pa.optJSONObject(i);
+                if (o != null && !o.optString("id").isEmpty()) provs.add(new Provider(o.optString("id"), o.optString("name", o.optString("id"))));
+            }
+        }
+        aiProviders = Collections.unmodifiableList(provs);
+        JSONObject as = j != null ? j.optJSONObject("assistant") : null;
+        assistantProvider = as != null ? as.optString("provider", "") : "";
+        assistantTts = as != null && as.optBoolean("tts", false);
+        askKey = as != null ? as.optString("key", "none") : "none";
+        // v2.10: the voice key opens Walker on the home by default (the TV test: Assistant was unusable here).
+        voiceKey = j != null && "assistant".equals(j.optString("voiceKey")) ? "assistant" : "launcher";
+        JSONObject tv = j != null ? j.optJSONObject("tv") : null;
+        tvEnabled = tv == null || tv.optBoolean("enabled", true);
+        JSONObject wx = j != null ? j.optJSONObject("weather") : null;
+        weatherLat = wx != null ? wx.optDouble("lat", Double.NaN) : Double.NaN;
+        weatherLon = wx != null ? wx.optDouble("lon", Double.NaN) : Double.NaN;
+        weatherPlace = wx != null ? wx.optString("place", "") : "";
+        wallpaper = j != null ? j.optString("wallpaper", c.getString(R.string.wallpaper)).trim() : c.getString(R.string.wallpaper).trim();
+        wallpaperBg = j != null ? Math.max(0, j.optInt("wallpaper_bg", 0)) : 0;
+        JSONObject theme = j != null ? j.optJSONObject("theme") : null;
+        // All colours come from the Omarchy theme (pushed colours > bundled stock palette > Tokyo Night).
+        this.theme = Theme.resolve(c, theme);
+        accent = this.theme.accent;
+        accent2 = this.theme.accent2;
+        JSONObject ss = j != null ? j.optJSONObject("screensaver") : null;
+        logo = j != null ? j.optString("logo", c.getString(R.string.logo)).trim() : c.getString(R.string.logo).trim();
+        screensaverArt = ss != null ? ss.optString("art", logo).trim() : logo;
+        screensaverClock = ss != null ? ss.optBoolean("clock", c.getResources().getBoolean(R.bool.screensaver_clock))
+                : c.getResources().getBoolean(R.bool.screensaver_clock);
+        uiSize = j != null ? j.optString("uiSize", "medium").trim() : "medium";
+        JSONObject geo = j != null ? j.optJSONObject("geometry") : null;
+        fontScale = clamp(geo != null ? (float) geo.optDouble("fontScale", 1.0) : 1f, 0.8f, 1.4f);
+        tileScale = clamp(geo != null ? (float) geo.optDouble("tileScale", 1.0) : 1f, 0.8f, 1.1f);
+        int defCols = Math.max(4, Math.min(7, c.getResources().getInteger(R.integer.columns)));
+        String size = geo != null ? geo.optString("appSize", "").trim() : "";
+        int idx = Arrays.asList(APP_SIZES).indexOf(size);
+        appSize = idx >= 0 ? size : APP_SIZES[defCols - 4];
+        columns = idx >= 0 ? idx + 4 : defCols;
+        gapDp = (int) clamp(geo != null ? geo.optInt("gaps", 5) : 5, 0, 20);   // Hyprland gaps_in = 5 (Omarchy looknfeel)
+        borderDp = (int) clamp(geo != null ? geo.optInt("border", 2) : 2, 1, 4);
+        transparency = (int) clamp(geo != null ? geo.optInt("transparency", Surfaces.DEFAULT) : Surfaces.DEFAULT, 5, 60);
+        wallpaperDim = geo != null ? geo.optString("wallpaperDim", "off") : "off";
+        screensaverSize = ss != null ? ss.optString("size", "large").trim() : "large";
+        int idle = ss != null ? ss.optInt("idleMin", 5) : 5;
+        screensaverIdleMin = idle == 1 || idle == 2 || idle == 10 || idle == 15 ? idle : 5;
+        screensaverSystem = ss != null && ss.optBoolean("system", false);
+        int isec = ss != null ? ss.optInt("idleSec", 150) : 150;
+        screensaverIdleSec = isec == 0 || isec == 60 || isec == 150 || isec == 300 || isec == 600 ? isec : 150;
+        logoAnim = j == null || j.optBoolean("logoAnim", true);
+        textTiles = j != null && j.optBoolean("textTiles", false);
+        JSONObject hw = j != null ? j.optJSONObject("homeWidgets") : null;
+        wWeather = hw == null || hw.optBoolean("weather", true);
+        wPc = hw == null || hw.optBoolean("pc", true);
+        wAi = hw == null || hw.optBoolean("ai", true);
+        wDeploys = hw == null || hw.optBoolean("deploys", true);
+        wTerm = hw == null || hw.optBoolean("term", true);
+        java.util.Map<String, int[]> ppos = new java.util.HashMap<>();
+        JSONObject pj = j != null ? j.optJSONObject("panelPos") : null;
+        if (pj != null) for (java.util.Iterator<String> it = pj.keys(); it.hasNext(); ) {
+            String k = it.next();
+            JSONArray a = pj.optJSONArray(k);
+            if (a != null && a.length() == 2) ppos.put(k, new int[]{a.optInt(0), a.optInt(1)});
+        }
+        panelPos = Collections.unmodifiableMap(ppos);
+        JSONObject cst = j != null ? j.optJSONObject("cast") : null;
+        castEnabled = cst != null && cst.optBoolean("enabled", false);
+        JSONObject pr = j != null ? j.optJSONObject("prompt") : null;
+        promptUser = promptPart(pr != null ? pr.optString("user", "") : "", "user");
+        promptHost = promptPart(pr != null ? pr.optString("host", "") : "", "omarchytv");
+        List<String> w = new ArrayList<>();
+        JSONArray wa = j != null ? j.optJSONArray("widgets") : null;
+        if (wa != null) {
+            for (int i = 0; i < wa.length(); i++) {
+                Object o = wa.opt(i);
+                if (o instanceof JSONObject) {
+                    JSONObject wo = (JSONObject) o;
+                    if (wo.optBoolean("enabled", true) && !wo.optString("id").isEmpty()) w.add(wo.optString("id"));
+                } else if (o instanceof String) {
+                    w.add((String) o);
+                }
+            }
+        } else {
+            w.addAll(Arrays.asList("omarchy.menu", "omarchy.workspaces", "omarchy.clock", "omarchytv.inputs", "omarchy.network", "omarchytv.settings"));
+        }
+        widgets = Collections.unmodifiableList(w);
+        sourceModified = modified;
+    }
+
+    static float sizeFraction(String size) {
+        if ("small".equals(size)) return 0.45f;
+        if ("medium".equals(size)) return 0.56f;
+        return 0.68f;
+    }
+
+    private static float clamp(float v, float lo, float hi) {
+        return Math.max(lo, Math.min(hi, v));
+    }
+
+    /**
+     * Wraps a base context with the configured language, UI scale and text scale. The UI scale is
+     * computed from the real screen: layouts are designed for a 960dp-wide screen (a 1920x1080 surface
+     * at density 320), so any TV gets the same proportions, times 0.9 / 1.0 / 1.12 for small / medium / large.
+     */
+    static Context wrap(Context base) {
+        try {
+            LauncherConfig cfg = get(base);
+            android.content.res.Configuration conf = new android.content.res.Configuration(base.getResources().getConfiguration());
+            android.util.DisplayMetrics dm = base.getResources().getDisplayMetrics();
+            int widthPx = Math.max(dm.widthPixels, dm.heightPixels);
+            float mult = "small".equals(cfg.uiSize) ? 0.9f : "large".equals(cfg.uiSize) ? 1.12f : 1f;
+            int dpi = Math.round(widthPx / 960f * 160f * mult);
+            if (dpi >= 120 && dpi <= 960) conf.densityDpi = dpi;
+            conf.fontScale = conf.fontScale * cfg.fontScale;
+            if (!"auto".equals(cfg.language) && !cfg.language.isEmpty()) {
+                java.util.Locale loc = new java.util.Locale(cfg.language);
+                conf.setLocale(loc);
+                conf.setLayoutDirection(loc);
+            }
+            return base.createConfigurationContext(conf);
+        } catch (Exception e) {
+            return base;
+        }
+    }
+
+    static File file(Context c) {
+        File dir = c.getExternalFilesDir(null);
+        if (dir == null) dir = c.getFilesDir();
+        return new File(dir, FILE_NAME);
+    }
+
+    /** Current config; re-parsed when the JSON file changed since the last call. Never throws. */
+    static synchronized LauncherConfig get(Context c) {
+        Context app = c.getApplicationContext();
+        File f = file(app);
+        long mod = f.isFile() ? f.lastModified() : 0L;
+        if (cached != null && cached.sourceModified == mod) return cached;
+        JSONObject j = mod != 0L ? readJson(app) : null;
+        cached = new LauncherConfig(app, j, mod);
+        return cached;
+    }
+
+    /** Reads the JSON file as an object (empty when missing or malformed). */
+    static JSONObject readJson(Context c) {
+        File f = file(c.getApplicationContext());
+        if (!f.isFile() || f.length() > 256 * 1024) return new JSONObject();
+        try (FileInputStream in = new FileInputStream(f)) {
+            byte[] b = new byte[(int) f.length()];
+            int n = 0;
+            while (n < b.length) {
+                int r = in.read(b, n, b.length - n);
+                if (r < 0) break;
+                n += r;
+            }
+            return new JSONObject(new String(b, 0, n, StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            return new JSONObject();
+        }
+    }
+
+    interface Edit {
+        void apply(JSONObject json) throws Exception;
+    }
+
+    /**
+     * Read-modify-write of omarchytv.json (atomic rename), keeping keys this version doesn't know, so a
+     * PC-side plugin and the launcher can edit the same file. Returns the fresh config.
+     */
+    /** Like {@link #update} but throws, so the Link service can answer 4xx/5xx instead of a silent no-op. */
+    static synchronized void updateOrThrow(Context c, Edit edit) throws Exception {
+        Context app = c.getApplicationContext();
+        JSONObject j = readJson(app);
+        if (!j.has("version")) j.put("version", 1);
+        edit.apply(j);
+        File f = file(app);
+        File tmp = new File(f.getParentFile(), FILE_NAME + ".tmp");
+        try (java.io.FileOutputStream out = new java.io.FileOutputStream(tmp)) {
+            out.write(j.toString(2).getBytes(StandardCharsets.UTF_8));
+            out.getFD().sync();
+        }
+        if (!tmp.renameTo(f)) {
+            f.delete();
+            if (!tmp.renameTo(f)) throw new java.io.IOException("cannot write " + f);
+        }
+        cached = null;
+    }
+
+    static synchronized LauncherConfig update(Context c, Edit edit) {
+        Context app = c.getApplicationContext();
+        JSONObject j = readJson(app);
+        try {
+            if (!j.has("version")) j.put("version", 1);
+            edit.apply(j);
+            File f = file(app);
+            File tmp = new File(f.getParentFile(), FILE_NAME + ".tmp");
+            try (java.io.FileOutputStream out = new java.io.FileOutputStream(tmp)) {
+                out.write(j.toString(2).getBytes(StandardCharsets.UTF_8));
+                out.getFD().sync();
+            }
+            if (!tmp.renameTo(f)) {
+                f.delete();
+                tmp.renameTo(f);
+            }
+        } catch (Exception ignored) {
+        }
+        cached = null;
+        return get(app);
+    }
+
+    static JSONArray array(List<String> items) {
+        JSONArray a = new JSONArray();
+        for (String s : items) a.put(s);
+        return a;
+    }
+
+    private static List<String> strings(JSONObject j, String key, List<String> fallback) {
+        JSONArray a = j != null ? j.optJSONArray(key) : null;
+        if (a == null) return fallback;
+        List<String> out = new ArrayList<>();
+        for (int i = 0; i < a.length(); i++) {
+            String s = a.optString(i, "").trim();
+            if (!s.isEmpty()) out.add(s);
+        }
+        return out;
+    }
+
+    private static int color(JSONObject o, String key, int fallback) {
+        if (o == null || !o.has(key)) return fallback;
+        try {
+            return Color.parseColor(o.optString(key));
+        } catch (Exception e) {
+            return fallback;
+        }
+    }
+
+
+    /** Lower case, only [a-z0-9._-], at most 16 characters; empty → {@code def}. */
+    static String promptPart(String in, String def) {
+        StringBuilder b = new StringBuilder();
+        String l = in == null ? "" : in.toLowerCase(java.util.Locale.ROOT);
+        for (int i = 0; i < l.length() && b.length() < 16; i++) {
+            char ch = l.charAt(i);
+            if ((ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '.' || ch == '_' || ch == '-') b.append(ch);
+        }
+        return b.length() == 0 ? def : b.toString();
+    }
+}

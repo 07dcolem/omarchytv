@@ -1,0 +1,41 @@
+name: TV report
+description: Report how OmarchyTV works on your TV / Come funziona OmarchyTV sulla tua TV
+title: "[TV] <brand model> – Android <version>"
+labels: ["tv-report"]
+body:
+  - type: input
+    id: model
+    attributes: {label: "TV model / Modello TV", placeholder: "Sony KD-55XE9005"}
+    validations: {required: true}
+  - type: input
+    id: android
+    attributes: {label: "Android version (adb shell getprop ro.build.version.release) / Versione Android", placeholder: "9"}
+    validations: {required: true}
+  - type: input
+    id: webview
+    attributes: {label: "WebView version (Settings → Apps → Android System WebView)", placeholder: "138.0"}
+  - type: input
+    id: version
+    attributes: {label: "OmarchyTV version", placeholder: "2.10-beta"}
+    validations: {required: true}
+  - type: checkboxes
+    id: works
+    attributes:
+      label: What works / Cosa funziona
+      options:
+        - label: Install + set as home / Installazione e home
+        - label: Workspaces 1–5 (keys 1–5, CH±)
+        - label: Long OK → Move / Hide
+        - label: Themes and backgrounds / Temi e sfondi
+        - label: Panels on/off and Arrange panels
+        - label: Screensaver effects (not black) / Salvaschermo con effetti
+        - label: System screensaver (Daydream) / Salvaschermo di sistema
+        - label: TV tile / HDMI inputs / Tile TV e ingressi
+        - label: Voice key → Walker
+        - label: Omarchy Link pairing (PC)
+  - type: textarea
+    id: broken
+    attributes: {label: "What doesn't work / Cosa non funziona", description: "Steps, photos, `adb logcat -s OmarchyTV` (remove IPs/SSID)"}
+  - type: textarea
+    id: debloat
+    attributes: {label: "Disabled packages (optional) / Pacchetti disattivati", description: "Only pm disable-user"}

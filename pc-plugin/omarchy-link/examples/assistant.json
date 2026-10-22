@@ -1,0 +1,10 @@
+{
+  "default": "auto",
+  "autoDetect": true,
+  "memory": { "turns": 6, "minutes": 15 },
+  "providers": [
+    { "type": "claude_code", "id": "claude-code", "model": "haiku" },
+    { "type": "openai_compatible", "id": "lmstudio", "name": "LM Studio", "baseUrl": "http://127.0.0.1:1234/v1", "model": "qwen3-8b", "enabled": false },
+    { "type": "xai_api", "id": "grok-api", "key": "env:XAI_API_KEY", "enabled": false }
+  ]
+}

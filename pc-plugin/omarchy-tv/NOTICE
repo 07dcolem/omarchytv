@@ -1,0 +1,4 @@
+Omarchy TV PC plugin - Copyright (c) 2026 Marco Porro, MIT (see LICENSE).
+Based on omarchy-link (Marco Porro, MIT). Python standard library only.
+Works with Omarchy (https://github.com/basecamp/omarchy, MIT, (c) David Heinemeier Hansson); reads theme colours from the local install, nothing redistributed.
+Unofficial; "Omarchy" is the Omarchy project branding.

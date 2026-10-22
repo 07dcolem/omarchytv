@@ -1,0 +1,36 @@
+{
+  "autoDetect": false,
+  "providers": [
+    {
+      "type": "mirror",
+      "preset": "omarchy-agents"
+    }
+  ],
+  "_examples": {
+    "onlySomeRows": {
+      "type": "mirror",
+      "preset": "omarchy-agents",
+      "include": [
+        "Claude Session",
+        "Claude Weekly",
+        "Codex Weekly"
+      ]
+    },
+    "omacash": {
+      "type": "mirror",
+      "preset": "omacash",
+      "include": [
+        "openrouter",
+        "elevenlabs"
+      ]
+    },
+    "manual": {
+      "type": "manual",
+      "name": "SuperGrok",
+      "used": 30,
+      "limit": 100,
+      "unit": "%",
+      "resetsAt": null
+    }
+  }
+}

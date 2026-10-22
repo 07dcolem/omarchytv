@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""omarchy-tv: Omarchy-style front-end for OmarchyTV, built on omarchy-link.
+
+  omarchy-tv [menu]                     Walker menu (gum / numbered list without Walker)
+  omarchy-tv status | pair | remote KEY | cast [TARGET]
+  omarchy-tv screen start [--audio] | screen stop     live "Schermo PC" (opt-in, H.264 MPEG-TS over the link)
+  omarchy-tv themes list | push [NAME|--all] | select NAME [BG] | delete NAME
+  omarchy-tv update APK --tv IP:5555 [--yes] [--dry-run]   adb install -r, cert + versionCode checked
+  omarchy-tv stats                      show the stats pushed every 5 s while the TV home is visible
+"""
+import os, sys
+HERE = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, os.path.join(HERE, "..", "lib"))
+for cand in (os.environ.get("OMARCHY_LINK_LIB"), os.path.expanduser("~/.local/share/omarchy-link/lib"),
+             os.path.join(HERE, "..", "..", "omarchy-link", "lib"),
+             os.path.join(HERE, "..", "..", "..", "omarchy-link", "lib")):
+    if cand and os.path.isdir(os.path.join(cand, "omarchy_link")):
+        sys.path.insert(1, cand)
+        exe = os.path.join(cand, "..", "bin", "omarchy-link")
+        if os.path.isfile(exe):
+            os.environ.setdefault("OMARCHY_LINK_BIN", os.path.realpath(exe))
+        break
+from omarchy_tv import ui, themes, update  # noqa: E402
+
+MENU = [("󰍹  Stato", "status"), ("󰌘  Abbina TV", "pair"), ("󰸌  Temi e sfondi", "themes"),
+        ("󰍺  Schermo PC", "screen"), ("󰚰  Aggiorna APK", "update"), ("󰄘  Cast", "cast"), ("󰑔  Telecomando", "remote")]
+
+
+def client():
+    from omarchy_link import config, client as link
+    p = config.Pairing.load()
+    if not p.paired:
+        ui.say("TV non abbinata: omarchy-tv pair")
+        raise SystemExit(3)
+    return link.Client(p.tv, p.pc_id, not config.load_config().get("allowOtherSubnets"))
+
+
+def cmd_themes(args):
+    sub = args[0] if args else None
+    if sub is None:
+        sub = {"Invia un tema": "push", "Temi sulla TV": "list", "Scegli sulla TV": "select", "Elimina": "delete"}.get(
+            ui.choose("Temi…", ["Invia un tema", "Temi sulla TV", "Scegli sulla TV", "Elimina"]) or "")
+        if not sub:
+            return 0
+    c = client()
+    if sub == "list":
+        r = themes.list_tv(c)
+        for t in r.get("themes", []):
+            ui.say(f"★ {t['name']}  {len(t['backgrounds'])} sfondi  {t['bytes'] / 1e6:.1f} MB")
+        ui.say(f"usati {r.get('used', 0) / 1048576:.1f} / {r.get('cap', themes.CAP) / 1048576:.0f} MB")
+        return 0
+    if sub == "push":
+        found = themes.user_themes()
+        if "--all" in args:
+            pick = found
+        else:
+            name = args[1] if len(args) > 1 else ui.choose("Tema da inviare…", [t.name for t in found])
+            pick = [t for t in found if t.name == name]
+        if not pick:
+            ui.say("Nessun tema utente in ~/.config/omarchy/themes."); return 1
+        for t in pick:
+            r = themes.push(c, t)
+            ui.say(f"✓ {r['name']}: {len(r['backgrounds'])} sfondi, {r['bytes'] / 1e6:.1f} MB")
+            ui.notify(f"Tema {r['name']} inviato alla TV")
+        return 0
+    if sub == "select":
+        names = [t["name"] for t in themes.list_tv(c).get("themes", [])]
+        name = args[1] if len(args) > 1 else ui.choose("Tema…", names)
+        if not name:
+            return 0
+        themes.select(c, name, int(args[2]) if len(args) > 2 else 0)
+        ui.notify(f"TV: tema {name}")
+        return 0
+    if sub == "delete":
+        name = args[1] if len(args) > 1 else ui.choose("Elimina…", [t["name"] for t in themes.list_tv(c).get("themes", [])])
+        if name and ("--yes" in args or ui.confirm(f"Eliminare {name} dalla TV?")):
+            themes.delete(c, name)
+            ui.say(f"✗ {name} eliminato")
+        return 0
+    ui.say(__doc__); return 2
+
+
+def cmd_screen(args):
+    """Live screen: delegates to omarchy-link cast --screen (gpu-screen-recorder / wf-recorder, hw encode if any)."""
+    action = args[0] if args else (ui.choose("Schermo PC…", ["start", "start --audio", "stop"]) or "")
+    if action.startswith("start"):
+        env = dict(os.environ)
+        if "--audio" in args or "--audio" in action:
+            env["OMARCHY_LINK_SCREEN_AUDIO"] = "1"
+        return ui.run(["omarchy-link", "cast", "--screen"], env=env)
+    if action == "stop":
+        return ui.run(["omarchy-link", "cast", "--stop"])
+    return 0
+
+
+def main(argv):
+    args = argv[1:]
+    cmd = args[0] if args else "menu"
+    rest = args[1:]
+    if cmd == "menu":
+        pick = ui.choose("OmarchyTV…", [m[0] for m in MENU])
+        cmd = dict(MENU).get(pick or "", "")
+        if not cmd:
+            return 0
+    if cmd in ("pair", "status", "cast"):
+        return ui.run(["omarchy-link", cmd] + rest)
+    if cmd == "remote":
+        return ui.run(["omarchy-link", "key", rest[0] if rest else (ui.choose("Tasto…", ["home", "back", "up", "down", "left", "right", "ok", "play_pause"]) or "home")])
+    if cmd == "themes":
+        return cmd_themes(rest)
+    if cmd == "screen":
+        return cmd_screen(rest)
+    if cmd == "stats":
+        from omarchy_link import stats, config
+        ui.say(str(stats.payload(config.load_config())))
+        return 0
+    if cmd == "update":
+        apk = rest[0] if rest and not rest[0].startswith("-") else ui.ask("Percorso dell'APK")
+        tv = rest[rest.index("--tv") + 1] if "--tv" in rest else None
+        return update.update(apk, tv, dry_run="--dry-run" in rest, yes="--yes" in rest)
+    ui.say(__doc__)
+    return 2
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main(sys.argv))
+    except Exception as e:  # LinkError, ValueError, OSError: one Omarchy-style line + notification
+        ui.say(f"✗ {e}")
+        ui.notify(f"Errore: {e}")
+        sys.exit(1)

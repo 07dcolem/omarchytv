@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "com.omarchytv.link",
+  "name": "Omarchy Link",
+  "version": "0.1.0",
+  "author": "Marco Porro",
+  "license": "MIT",
+  "homepage": "https://github.com/omarchytv/omarchy-link",
+  "description": "Pair Omarchy with the OmarchyTV Android TV launcher: theme and wallpaper sync, info panes, AI credits, and a TV remote in the bar",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "ui/Widget.qml"
+  },
+  "barWidget": {
+    "displayName": "OmarchyTV",
+    "description": "TV status (app, screensaver), remote keys, open apps, theme sync, pairing",
+    "category": "Controls",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "showLabel": true,
+      "appCount": 8
+    },
+    "schema": [
+      {
+        "key": "showLabel",
+        "type": "boolean",
+        "label": "Show the app open on the TV",
+        "defaultValue": true
+      },
+      {
+        "key": "appCount",
+        "type": "integer",
+        "label": "Apps in the popup",
+        "min": 2,
+        "max": 24,
+        "step": 1,
+        "defaultValue": 8
+      }
+    ]
+  }
+}

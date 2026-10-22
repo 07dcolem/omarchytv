@@ -1,0 +1,11 @@
+{
+  "panes": [
+    { "id": "todo", "title": "today", "icon": "", "ttl": 3600,
+      "lines": [ { "label": "18:30", "value": "football" }, { "label": "21:00", "value": "film night" } ] }
+  ],
+  "shortcuts": [
+    { "id": "lofi", "label": "Lofi", "action": { "type": "view", "uri": "https://www.youtube.com/watch?v=jfKfPfyJRdk", "package": "com.google.android.youtube.tv" } },
+    { "id": "netflix", "label": "Netflix", "action": { "type": "app", "package": "com.netflix.ninja" } },
+    { "id": "lock", "label": "Lock PC", "action": { "type": "pc", "command": "lock" } }
+  ]
+}

@@ -1,0 +1,6 @@
+#!/bin/bash
+# Omarchy Link CLI. Python 3 stdlib only; ffmpeg (or ImageMagick) for the wallpaper.
+set -euo pipefail
+root="$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")/.." && pwd)"
+export OMARCHY_LINK_BIN="$root/bin/omarchy-link"
+exec python3 -I -c 'import sys; sys.path.insert(0, sys.argv.pop(1)); from omarchy_link.cli import main; sys.exit(main(sys.argv[1:]))' "$root/lib" "$@"

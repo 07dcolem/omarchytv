@@ -1,0 +1,18 @@
+name: Bug
+description: Something is broken / Qualcosa non funziona
+labels: ["bug"]
+body:
+  - type: input
+    id: tv
+    attributes: {label: "TV model + Android version"}
+    validations: {required: true}
+  - type: textarea
+    id: steps
+    attributes: {label: "Steps / Passi"}
+    validations: {required: true}
+  - type: textarea
+    id: expected
+    attributes: {label: "Expected vs actual / Atteso e ottenuto"}
+  - type: textarea
+    id: log
+    attributes: {label: "adb logcat -s OmarchyTV", render: text}

@@ -1,0 +1,7 @@
+#!/bin/bash
+# Omarchy theme-set hook (written by `omarchy-link hook add`): send the new
+# theme to the paired OmarchyTV in the background. Never fails the theme switch.
+root="@OMARCHY_LINK_ROOT@"
+[[ -x $root/bin/omarchy-link ]] || exit 0
+setsid "$root/bin/omarchy-link" sync-theme --quiet </dev/null >/dev/null 2>&1 &
+exit 0

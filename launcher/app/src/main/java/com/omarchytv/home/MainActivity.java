@@ -1,0 +1,3190 @@
+package com.omarchytv.home;
+
+import android.app.Activity;
+import android.content.ActivityNotFoundException;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.graphics.Color;
+import android.graphics.Rect;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.GradientDrawable;
+import android.content.pm.PackageManager;
+import android.media.tv.TvContract;
+import android.media.tv.TvInputInfo;
+import android.media.tv.TvInputManager;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.Settings;
+import android.view.Gravity;
+import android.view.KeyEvent;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.PopupWindow;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.dynamicanimation.animation.DynamicAnimation;
+import androidx.dynamicanimation.animation.SpringAnimation;
+import androidx.dynamicanimation.animation.SpringForce;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * OmarchyTV home: Tokyo Night wallpaper, a Waybar-style top bar, a pinned dock row, an app grid, and one
+ * Hyprland-style focus border that springs between tiles. Behaviour is unchanged from tv-vibehack's launcher.
+ */
+public class MainActivity extends Activity implements AppAdapter.TileListener, TvAdapter.Listener, ShortcutAdapter.Listener {
+
+    /** Tiles per row and dock slots (res/values/config.xml, columns). Set in onCreate. */
+    static int COLUMNS = 4;
+    private static final long MINUTE_MS = 60_000L;
+    private String liveTvPkg;
+
+    private AppAdapter adapter;
+    private RecyclerView grid;
+    private FrameLayout root;
+    private FocusFrameView glass;
+    private LinearLayout workspaces;
+    private View cursor;
+    private int activeWorkspace = -1;
+    private View ambient;
+    private TextView heroName;
+    private GradientDrawable ambientGlow;
+    private int ambientColor;
+    private boolean heroShown;
+    private TextView btnWifi;
+    private SpringAnimation springX, springY;
+    private float glassTargetX, glassTargetY;
+    private boolean glassShown;
+    // Static so they survive the activity being destroyed while another app is open (low-memory TVs,
+    // or Developer options → "Don't keep activities"); they only reset when the process dies.
+    private static int lastFocused = 0;
+    /** App of the last focused tile, so focus follows it when the app list changes. */
+    private static String lastFocusedKey;
+    private float density;
+
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    /** Refreshes the network pill when the connection changes: at boot Wi-Fi often connects after Home is shown. */
+    private final ConnectivityManager.NetworkCallback networkCallback = new ConnectivityManager.NetworkCallback() {
+        @Override
+        public void onAvailable(@NonNull Network network) {
+            handler.post(MainActivity.this::updateWifiLabel);
+        }
+
+        @Override
+        public void onLost(@NonNull Network network) {
+            handler.post(MainActivity.this::updateWifiLabel);
+        }
+    };
+    /** Terminal cursor blink period (xterm/VTE default 530 ms). */
+    private static final long BLINK_MS = 530;
+    /** Blinking terminal cursor after the prompt; runs only while the home screen is resumed. */
+    private final Runnable blink = new Runnable() {
+        @Override
+        public void run() {
+            cursor.setVisibility(cursor.getVisibility() == View.VISIBLE ? View.INVISIBLE : View.VISIBLE);
+            // Section prompts: "> Apps" (drawn by DockDecoration), "> Omarchy" and "> TV" blink while their section has focus.
+            boolean on = cursor.getVisibility() == View.VISIBLE;
+            if (dock != null && dock.cursorOn != (focusSection <= 1 && on)) {
+                dock.cursorOn = focusSection <= 1 && on;
+                grid.invalidate();
+            }
+            if (tv != null) tv.blink();
+            if (sc != null) sc.blink();
+            if (home != null) home.blink(on);   // v2.10: the home prompt cursor blinks too
+            handler.postDelayed(this, BLINK_MS);
+        }
+    };
+    private final Runnable minuteTick = new Runnable() {
+        @Override
+        public void run() {
+            updateWifiLabel();
+            updatePanes();
+            if (home != null) {
+                home.refresh();
+                Weather.refreshAuto(MainActivity.this, LauncherConfig.get(MainActivity.this), home::refresh);
+            }
+            handler.postDelayed(this, untilNextMinute());
+        }
+    };
+
+    // ---- v2: logo menu, move mode, panes ---------------------------------------------------------
+
+    /** Menu page to reopen after a live-preview rebuild, and the row that had focus. Survive recreate(). */
+    private static String reopenPage, reopenRow;
+    private AsciiMenu menu;
+    private View btnMenu;
+    private TextView moveHint;
+    private LinearLayout panes;
+    /** Position of the tile being moved, or -1. */
+    private int movingPos = -1;
+    private List<String> moveSnapshot;
+
+    @Override
+    protected void attachBaseContext(Context base) {
+        // Language override + UI size + text scale (omarchytv.json "language", "uiSize", "geometry").
+        super.attachBaseContext(LauncherConfig.wrap(base));
+    }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        Watchdog.install(this);
+        setContentView(R.layout.activity_main);
+        Theme.apply(getWindow().getDecorView());
+        {   // Move-mode hint: themed bg with the Hyprland "dragging" orange border (stroke colours can't be remapped from XML).
+            android.graphics.drawable.GradientDrawable hb = new android.graphics.drawable.GradientDrawable();
+            hb.setColor(Theme.withAlpha(Theme.cur().bg, 0.95f));
+            hb.setStroke(Math.round(2 * getResources().getDisplayMetrics().density), Theme.cur().orange);
+            findViewById(R.id.moveHint).setBackground(hb);
+        }
+        density = getResources().getDisplayMetrics().density;
+        COLUMNS = LauncherConfig.get(this).columns;   // Layout → App size (4 / 5 / 6 / 7 per row)
+        liveTvPkg = getString(R.string.live_tv_package).trim();
+
+        root = findViewById(R.id.root);
+        glass = findViewById(R.id.glass);
+        ambient = findViewById(R.id.ambient);
+        heroName = findViewById(R.id.heroName);
+        ambientGlow = new GradientDrawable();
+        ambientGlow.setGradientType(GradientDrawable.RADIAL_GRADIENT);
+        ambientGlow.setGradientCenter(0.32f, 0.42f);
+        ambient.setBackground(ambientGlow);
+        ambient.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) ->
+                ambientGlow.setGradientRadius((r - l) * 0.62f));
+        workspaces = findViewById(R.id.workspaces);
+        cursor = findViewById(R.id.cursor);
+        ((TextView) findViewById(R.id.promptUser)).setText(promptText(LauncherConfig.get(this)));
+        moveHint = findViewById(R.id.moveHint);
+        panes = findViewById(R.id.panes);
+        btnMenu = findViewById(R.id.btnMenu);
+        btnMenu.setOnClickListener(v -> showMenu(null, null));
+        boolean omarchyIcon = getResources().getBoolean(R.bool.omarchy_icon);
+        findViewById(R.id.barIcon).setVisibility(omarchyIcon ? View.VISIBLE : View.GONE);
+        findViewById(R.id.barMark).setVisibility(omarchyIcon ? View.GONE : View.VISIBLE);
+        btnWifi = findViewById(R.id.btnWifi);
+
+        grid = findViewById(R.id.grid);
+        gridFrame = findViewById(R.id.gridFrame);
+        applySurfaces();
+        syncDreams();
+        root.getViewTreeObserver().addOnGlobalLayoutListener(this::updatePlates);
+        // One span per app; the "> tv" header and its tile take a full row (the tile sizes itself to two columns).
+        // Fixed focus line: onTileFocused scrolls the focused row to the dock's place itself, so the layout
+        // manager's "scroll just enough" on focus is switched off (it would fight the fixed line).
+        GridLayoutManager glm = new GridLayoutManager(this, COLUMNS) {
+            @Override
+            public boolean requestChildRectangleOnScreen(@NonNull RecyclerView parent, @NonNull View child,
+                                                         @NonNull Rect rect, boolean immediate, boolean focusedChildVisible) {
+                return false;
+            }
+        };
+        glm.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
+            @Override
+            public int getSpanSize(int position) {
+                // apps: 1 each; "> omarchy" header full row, shortcut tiles 1 each; "> tv" header + tile full rows
+                int apps = adapter.getItemCount(), scn = sc.getItemCount();
+                if (position < apps) return 1;
+                if (position < apps + scn) return position == apps ? COLUMNS : 1;
+                return COLUMNS;
+            }
+        });
+        grid.setLayoutManager(glm);
+        grid.setHasFixedSize(true);
+        grid.setItemAnimator(null);
+        dock = new DockDecoration(this, COLUMNS, density);
+        grid.addItemDecoration(dock);
+        adapter = new AppAdapter(this, this, COLUMNS);
+        tv = new TvAdapter(this, this);
+        sc = new ShortcutAdapter(this, this);
+        grid.setAdapter(new androidx.recyclerview.widget.ConcatAdapter(
+                new androidx.recyclerview.widget.ConcatAdapter.Config.Builder()
+                        .setStableIdMode(androidx.recyclerview.widget.ConcatAdapter.Config.StableIdMode.ISOLATED_STABLE_IDS).build(),
+                adapter, sc, tv));
+
+        // tvOS layout: push the dock row to the bottom of the screen; the grid hides below until you press Down.
+        grid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+            int h = b - t;
+            int dockRow = (int) ((AppAdapter.rowHeightDp(LauncherConfig.get(this)) + 6 + 12) * density);   // item + DockDecoration offsets
+            int want = Math.max(0, h - dockRow - (int) (30 * density));
+            // Bottom padding as tall as the dock area, so even the last row (> TV) can reach the focus line.
+            int wantBottom = Math.max((int) (40 * density), h - want);
+            if (grid.getPaddingTop() != want || grid.getPaddingBottom() != wantBottom) {
+                grid.setPadding(grid.getPaddingLeft(), want, grid.getPaddingRight(), wantBottom);
+            }
+        });
+
+        // Keep the glass glued to its tile while the grid scrolls.
+        grid.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView rv, int dx, int dy) {
+                if (dy != 0) gridFrame.invalidate();   // top fade follows the scroll
+                if (!glassShown) return;
+                glassTargetY -= dy;
+                if (springY.isRunning()) springY.animateToFinalPosition(glassTargetY);
+                else glass.setTranslationY(glassTargetY);
+            }
+        });
+
+        // Terminal feel: a stiff, critically damped spring (no bounce, ~80 ms) so the border snaps to the tile.
+        springX = new SpringAnimation(glass, DynamicAnimation.TRANSLATION_X);
+        springY = new SpringAnimation(glass, DynamicAnimation.TRANSLATION_Y);
+        for (SpringAnimation s : new SpringAnimation[]{springX, springY}) {
+            s.setSpring(new SpringForce().setStiffness(3000f).setDampingRatio(SpringForce.DAMPING_RATIO_NO_BOUNCY));
+        }
+
+        View btnInputs = findViewById(R.id.btnInputs);
+        View btnSettings = findViewById(R.id.btnSettings);
+        btnInputs.setOnClickListener(v -> showInputs());
+        btnWifi.setOnClickListener(v -> open(new Intent(Settings.ACTION_WIFI_SETTINGS)));
+        btnSettings.setOnClickListener(v -> open(new Intent(Settings.ACTION_SETTINGS)));
+
+        // Keep focus on the top bar at its ends and at the top: Android's focus finder would otherwise
+        // jump to a tile far below when there is nothing in that direction.
+        View.OnKeyListener pillKeys = (v, keyCode, event) -> {
+            if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return true;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && v.getId() == R.id.btnMenu) return true;
+            return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == R.id.btnSettings;
+        };
+        btnMenu.setOnKeyListener(pillKeys);
+        btnInputs.setOnKeyListener(pillKeys);
+        btnWifi.setOnKeyListener(pillKeys);
+        btnSettings.setOnKeyListener(pillKeys);
+
+        // Hide the glass when focus leaves the tiles.
+        getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((oldF, newF) -> {
+            boolean onTile = newF != null && newF.getId() == R.id.card;
+            if (!onTile) hideGlass();
+        });
+
+        ConnectivityManager cm = getSystemService(ConnectivityManager.class);
+        if (cm != null) cm.registerDefaultNetworkCallback(networkCallback);
+        // Omarchy Link (TV side): LAN server + mDNS, lives with the launcher process.
+        OmarchyLink.start(this);
+        OmarchyLink.addListener(linkListener);
+        setupHomeV29();
+    }
+
+    // ---- v2.9 home (HomeV29: Waybar, fastfetch, widgets, app window; workspace 2 = the full grid) -------------
+
+    private HomeV29 home;
+    private Walker walker;
+    private int workspace = 1;
+
+    private void setupHomeV29() {
+        home = new HomeV29(this, new HomeV29.Host() {
+            @Override
+            public void openSettings(View anchor) {
+                showMenu(null, null);
+            }
+
+            @Override
+            public void showWorkspace(int ws) {
+                setWorkspace(ws);   // v2.10: 1 home · 2 tv · 3 app · 4 pc · 5 sistema
+            }
+
+            @Override
+            public void wifiClick() {
+                // SSID needs location on Android 8.1+: ask once from here, else open Wi-Fi settings.
+                if (android.os.Build.VERSION.SDK_INT >= 26 && checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
+                        != PackageManager.PERMISSION_GRANTED && !getPreferences(MODE_PRIVATE).getBoolean("askedLocation", false)) {
+                    getPreferences(MODE_PRIVATE).edit().putBoolean("askedLocation", true).apply();
+                    requestPermissions(new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, 7);
+                    return;
+                }
+                open(new Intent(Settings.ACTION_WIFI_SETTINGS));
+            }
+
+            @Override
+            public void openBluetooth() {
+                openFirst(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS),
+                        new Intent("com.android.tv.settings.accessories.ADD_ACCESSORY"),
+                        new Intent().setClassName("com.android.tv.settings", "com.android.tv.settings.accessories.AddAccessoryActivity"),
+                        new Intent("android.settings.CONNECTED_DEVICES_SETTINGS"),
+                        new Intent(Settings.ACTION_SETTINGS));
+            }
+
+            @Override
+            public void openTv() {
+                onTvClick();
+            }
+
+            @Override
+            public void tileMenu(int appPos, View anchor) {
+                appTileMenu(appPos, anchor);
+            }
+
+            @Override
+            public void savePanelPos(String id, int cx, int cy) {
+                sysSet(j -> {
+                    org.json.JSONObject o = j.optJSONObject("panelPos");
+                    if (o == null) j.put("panelPos", o = new org.json.JSONObject());
+                    o.put(id, new org.json.JSONArray().put(cx).put(cy));
+                });
+            }
+
+            @Override
+            public void moveApp(int from, int to) {
+                adapter.move(from, to);
+            }
+
+            @Override
+            public void finishMove(boolean save) {
+                finishHomeMove(save);
+            }
+
+            @Override
+            public List<HomeV29.Source> sources() {
+                return tvSources();
+            }
+
+            @Override
+            public boolean pcPaired() {
+                return !OmarchyLink.pcs().isEmpty();
+            }
+
+            @Override
+            public void pairPc() {
+                OmarchyLink.openPairing();   // same as menu → Omarchy Link: a new code each time the page opens
+                showMenu("link", null);
+            }
+
+            @Override
+            public void sys(String id) {
+                sysAction(id);
+            }
+
+            @Override
+            public void showInputs(View anchor) {
+                MainActivity.this.showInputs();
+            }
+
+            @Override
+            public void screenPc(View anchor) {
+                showScreenPc();
+            }
+
+            @Override
+            public void openWalker() {
+                MainActivity.this.openWalker();
+            }
+
+            @Override
+            public void weatherMenu(View anchor) {
+                showWeatherMenu();
+            }
+
+            @Override
+            public void aiMenu(View anchor) {
+                showMenu("ai", null);
+            }
+
+            @Override
+            public void launchApp(int position) {
+                lastFocusedKey = adapter.keyAt(position);
+                adapter.launchAt(position);
+            }
+
+            @Override
+            public String wifiName() {
+                return currentNetworkName();
+            }
+        });
+        root.addView(home, 2, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        findViewById(R.id.bar).setVisibility(View.INVISIBLE);   // kept only as the menus' anchor (top left)
+        findViewById(R.id.leftBlock).setVisibility(View.GONE);
+        panes.setVisibility(View.GONE);
+        ViewGroup.MarginLayoutParams gl = (ViewGroup.MarginLayoutParams) gridFrame.getLayoutParams();
+        gl.topMargin = home.barHeight() - (int) (34 * density);
+        gridFrame.setLayoutParams(gl);
+        setWorkspace(reopenWs);
+    }
+
+    private void setWorkspace(int ws) {
+        if (ws < 1 || ws > 5) return;
+        workspace = ws;
+        reopenWs = ws;
+        home.setWorkspace(ws);
+        gridFrame.setVisibility(View.GONE);   // v2.10: the app grid is workspace 3 inside HomeV29
+    }
+
+    /** Workspace to come back to after a settings rebuild (recreate()). */
+    private static int reopenWs = 1;
+
+    private boolean openFirst(Intent... intents) {
+        for (Intent i : intents) {
+            try {
+                startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                return true;
+            } catch (Exception ignored) {
+            }
+        }
+        Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
+        return false;
+    }
+
+    /** OK lungo on an app tile (home row or workspace 3): Sposta / Nascondi. The TV tile never gets here. */
+    private void appTileMenu(int position, View anchor) {
+        if (home.movingApp >= 0 || position < 0 || position >= adapter.getItemCount()) return;
+        String key = adapter.keyAt(position);
+        if (key == null) return;
+        if (menu != null && menu.isShowing()) menu.dismiss();
+        menu = new AsciiMenu(this, 300);
+        AsciiMenu.Page p = new AsciiMenu.Page(adapter.labelAt(position));
+        p.add(str(R.string.ctx_move), "←↑↓→", r -> {
+            home.post(() -> {
+                moveSnapshot = adapter.packagesInOrder();
+                home.startMove(position);
+            });
+            return false;
+        });
+        p.add(str(R.string.ctx_hide), null, r -> {
+            LauncherConfig.update(this, j -> {
+                List<String> list = new ArrayList<>(LauncherConfig.get(this).hidden);
+                if (!list.contains(key)) list.add(key);
+                j.put("hidden", LauncherConfig.array(list));
+            });
+            builtWith = LauncherConfig.get(this);
+            reloadApps();
+            home.bind(builtWith, adapter);
+            home.post(home::focusDefault);
+            return false;
+        });
+        menu.showBelow(anchor, p);
+    }
+
+    private void finishHomeMove(boolean save) {
+        int at = home.movingApp;
+        home.endMove();
+        if (at < 0) return;
+        if (save) {
+            List<String> pkgs = adapter.packagesInOrder();
+            int d = Math.min(COLUMNS, pkgs.size());
+            List<String> dock = new ArrayList<>(pkgs.subList(0, d));
+            List<String> rest = new ArrayList<>(pkgs.subList(d, pkgs.size()));
+            builtWith = LauncherConfig.update(this, j -> {
+                j.put("dock", LauncherConfig.array(dock));
+                j.put("order", LauncherConfig.array(rest));
+            });
+            Toast.makeText(this, R.string.move_saved, Toast.LENGTH_SHORT).show();
+        } else if (moveSnapshot != null) {
+            adapter.restoreOrder(moveSnapshot);
+            Toast.makeText(this, R.string.move_cancelled, Toast.LENGTH_SHORT).show();
+        }
+        moveSnapshot = null;
+        home.bind(LauncherConfig.get(this), adapter);
+    }
+
+    /** Workspace 2 · tv: the TV (Live TV app, last channel) and the connected HDMI inputs, CEC name when known. */
+    private List<HomeV29.Source> tvSources() {
+        List<HomeV29.Source> out = new ArrayList<>();
+        if (liveTvIntent() != null) out.add(new HomeV29.Source("TV", str(R.string.live_tv), R.drawable.ln_monitor, this::onTvClick));
+        TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
+        if (tim == null) return out;
+        List<TvInputInfo> all;
+        try {
+            all = new ArrayList<>(tim.getTvInputList());
+        } catch (RuntimeException e) {
+            return out;
+        }
+        int ports = 0, connected = 0;
+        for (TvInputInfo info : all) {
+            if (!info.isPassthroughInput() || info.getType() != TvInputInfo.TYPE_HDMI || info.getParentId() != null) continue;
+            ports++;
+            if (tim.getInputState(info.getId()) == TvInputManager.INPUT_STATE_CONNECTED) connected++;
+        }
+        boolean bogus = ports > 1 && connected == ports;   // Sony: every port "connected"
+        List<TvInputInfo> hdmi = new ArrayList<>();
+        for (TvInputInfo info : all) {
+            if (info.isPassthroughInput() && info.getType() == TvInputInfo.TYPE_HDMI && info.getParentId() == null) hdmi.add(info);
+        }
+        Collections.sort(hdmi, (a, b) -> String.valueOf(a.loadLabel(this)).compareToIgnoreCase(String.valueOf(b.loadLabel(this))));
+        for (TvInputInfo port : hdmi) {
+            String cec = null;
+            for (TvInputInfo c : all) {   // HDMI-CEC devices are child inputs of their port
+                if (port.getId().equals(c.getParentId())) {
+                    CharSequence l = c.loadLabel(this);
+                    if (l != null) cec = l.toString();
+                    if (tim.getInputState(c.getId()) == TvInputManager.INPUT_STATE_CONNECTED) break;
+                }
+            }
+            int state = tim.getInputState(port.getId());
+            if (!bogus && state == TvInputManager.INPUT_STATE_DISCONNECTED && cec == null) continue;   // only connected inputs
+            CharSequence l = port.loadLabel(this);
+            String label = l == null ? port.getId() : l.toString();
+            if (!label.toUpperCase(java.util.Locale.ROOT).contains("HDMI")) label = "HDMI " + label;
+            final String id = port.getId();
+            out.add(new HomeV29.Source(cec != null ? cec : label, cec != null ? label : "", R.drawable.ln_input,
+                    () -> open(new Intent(Intent.ACTION_VIEW).setDataAndType(
+                            TvContract.buildChannelUriForPassthroughInput(id), "vnd.android.cursor.item/channel"))));
+        }
+        return out;
+    }
+
+    /** Workspace 5 · sistema rows. */
+    private void sysAction(String id) {
+        switch (id) {
+            case "android":
+                open(new Intent(Settings.ACTION_SETTINGS));
+                break;
+            case "themes":
+                showMenu("themes", null);
+                break;
+            case "layout":
+                showMenu("layout", null);
+                break;
+            case "widgets":
+                showMenu("widgets", null);
+                break;
+            case "arrange":
+                showMenu("arrange", null);
+                break;
+            case "screensaver":
+                showMenu("screensaver", null);
+                break;
+            case "about":
+                showAbout();
+                break;
+            case "menu":
+                showMenu(null, null);
+                break;
+            case "idle": {
+                Integer[] idles = {60, 150, 300, 600, 0};
+                int n = next(idles, LauncherConfig.get(this).screensaverIdleSec);
+                sysSet(j -> screensaver(j).put("idleSec", n));
+                break;
+            }
+            case "logoAnim": {
+                boolean n = !LauncherConfig.get(this).logoAnim;
+                sysSet(j -> j.put("logoAnim", n));
+                break;
+            }
+            case "textTiles": {
+                boolean n = !LauncherConfig.get(this).textTiles;
+                sysSet(j -> j.put("textTiles", n));
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
+    /** Saves one workspace-5 option and redraws in place (no recreate). */
+    private void sysSet(LauncherConfig.Edit edit) {
+        builtWith = LauncherConfig.update(this, edit);
+        home.bind(builtWith, adapter);
+        resetIdle();
+    }
+
+    private String currentNetworkName() {
+        updateWifiLabel();
+        return btnWifi.getText().toString();
+    }
+
+    private void showScreenPc() {
+        if (menu != null && menu.isShowing()) menu.dismiss();
+        menu = new AsciiMenu(this, 420);
+        AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.v29_screen_pc).toLowerCase(java.util.Locale.ROOT));
+        if (!OmarchyLink.connected()) {
+            p.hint(str(R.string.v29_pc_off));
+        } else {
+            p.add(str(R.string.v29_screen_start), null, r -> {
+                OmarchyLink.screenMirror(true);
+                Toast.makeText(this, R.string.v29_screen_asked, Toast.LENGTH_LONG).show();
+                return false;
+            });
+            p.hint(str(R.string.v29_screen_note));
+        }
+        menu.showBelow(btnMenu, p);
+    }
+
+    private void showWeatherMenu() {
+        if (menu != null && menu.isShowing()) menu.dismiss();
+        menu = new AsciiMenu(this, 520);
+        LauncherConfig cfg = LauncherConfig.get(this);
+        AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.v29_wx_title));
+        String place = Weather.place(this, cfg);
+        p.hint(str(R.string.v29_wx_current) + ": " + (place.isEmpty() ? "—" : place) + (Double.isNaN(cfg.weatherLat) ? " (auto)" : ""));
+        p.add(str(R.string.v29_wx_auto), null, r -> {
+            LauncherConfig.update(this, j -> j.remove("weather"));
+            Weather.cacheFile(this).delete();
+            Weather.refreshAuto(this, LauncherConfig.get(this), home::refresh);
+            return false;
+        });
+        p.add(str(R.string.v29_wx_search), null, r -> {
+            handler.post(this::cityDialog);
+            return false;
+        });
+        menu.showBelow(btnMenu, p);
+    }
+
+    private void cityDialog() {
+        android.widget.EditText q = new android.widget.EditText(this);
+        q.setSingleLine(true);
+        new android.app.AlertDialog.Builder(this).setTitle(R.string.v29_wx_search).setView(q)
+                .setPositiveButton(android.R.string.ok, (d, w) -> {
+                    String name = q.getText().toString();
+                    String lang = getResources().getConfiguration().getLocales().get(0).getLanguage();
+                    new Thread(() -> {
+                        List<org.json.JSONObject> res = Weather.searchCity(name, lang);
+                        runOnUiThread(() -> cityResults(res));
+                    }, "omarchytv-geocode").start();
+                })
+                .setNegativeButton(android.R.string.cancel, null).show();
+    }
+
+    private void cityResults(List<org.json.JSONObject> res) {
+        if (!resumed) return;
+        if (menu != null && menu.isShowing()) menu.dismiss();
+        menu = new AsciiMenu(this, 620);
+        AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.v29_wx_title));
+        if (res.isEmpty()) p.hint(str(R.string.v29_wx_none));
+        for (org.json.JSONObject c : res) {
+            String label = c.optString("name") + (c.optString("admin1").isEmpty() ? "" : ", " + c.optString("admin1"));
+            p.add(label, c.optString("country_code", ""), r -> {
+                LauncherConfig.update(this, j -> j.put("weather", new org.json.JSONObject().put("lat", c.optDouble("latitude"))
+                        .put("lon", c.optDouble("longitude")).put("place", c.optString("name"))));
+                Weather.cacheFile(this).delete();
+                Weather.refreshAuto(this, LauncherConfig.get(this), home::refresh);
+                return false;
+            });
+        }
+        menu.showBelow(btnMenu, p);
+    }
+
+    private void openWalker() {
+        if (walker != null) return;
+        List<Walker.Item> items = new ArrayList<>();
+        String tApp = str(R.string.v29_type_app);
+        for (int i = 0; i < adapter.getItemCount(); i++) {
+            final int pos = i;
+            items.add(new Walker.Item(adapter.labelAt(i), tApp, () -> adapter.launchAt(pos)));
+        }
+        LauncherConfig cfg = LauncherConfig.get(this);
+        if (cfg.shortcutsOn) for (LauncherConfig.Shortcut x : cfg.shortcuts) items.add(new Walker.Item(x.label, str(R.string.v29_type_content), () -> onShortcutClick(x)));
+        if (cfg.tvEnabled) items.add(new Walker.Item(str(R.string.tv_tile), str(R.string.v29_type_content), this::onTvClick));
+        items.add(new Walker.Item("Wi-Fi: " + currentNetworkName(), str(R.string.v29_type_wifi), () -> open(new Intent(Settings.ACTION_WIFI_SETTINGS))));
+        items.addAll(Walker.settingsItems(this, () -> handler.post(() -> showMenu(null, null)), () -> handler.post(this::showInputs)));
+        walker = new Walker(this, home.s, items, new Walker.Host() {
+            @Override
+            public void voice() {
+                walkerVoice = true;
+                startVoiceSearch();
+            }
+
+            @Override
+            public void closed() {
+                walker = null;
+                home.post(home::restoreFocus);
+            }
+        });
+        root.addView(walker, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        walker.focus();
+    }
+
+    private boolean walkerVoice;
+
+    private boolean resumed, linkRefreshing, linkConfigPending;
+    private String pendingSourcesId;
+    /** "> omarchy" shortcuts section (between apps and "> tv"). */
+    private ShortcutAdapter sc;
+    private FadeTopFrame gridFrame;
+
+    private final OmarchyLink.Listener linkListener = (type, data) -> {
+        switch (type) {
+            case "pcs": {
+                String n = data.optString("paired", "");
+                if (!n.isEmpty()) Toast.makeText(this, getString(R.string.link_paired_toast, n), Toast.LENGTH_LONG).show();
+                refreshMenu("link");
+                break;
+            }
+            case "pairing":
+                refreshMenu("link");
+                break;
+            case "config":
+                onLinkConfig();
+                break;
+            case "clients":
+                if (resumed) {
+                    if (home != null) home.refresh();
+                    updatePanes();
+                    sc.notifyItemRangeChanged(0, sc.getItemCount());   // "pc" tiles: connected / not connected
+                }
+                break;
+            case "agent_activity":
+                if (resumed) updateAgentsPane();
+                break;
+            case "stats":
+                if (resumed && home != null) home.refresh();
+                break;
+            case "ai_sources_ok":
+                if (data.optString("id").equals(pendingSourcesId)) pendingSourcesId = null;
+                break;
+            case "ai_sources_error":
+                if (data.optString("id").equals(pendingSourcesId)) {
+                    pendingSourcesId = null;
+                    // The switch reverts by itself: the stored aiSources never changed.
+                    Toast.makeText(this, getString(R.string.ai_src_failed,
+                            data.optString("message", data.optString("error"))), Toast.LENGTH_LONG).show();
+                    refreshMenu("ai");
+                }
+                break;
+            default:
+                break;
+        }
+    };
+
+    private static boolean sameShortcuts(LauncherConfig a, LauncherConfig b) {
+        if (a.shortcutsOn != b.shortcutsOn || a.shortcuts.size() != b.shortcuts.size()) return false;
+        for (int i = 0; i < a.shortcuts.size(); i++) {
+            LauncherConfig.Shortcut x = a.shortcuts.get(i), y = b.shortcuts.get(i);
+            if (!(x.id + x.label + x.type + x.pkg + x.uri + x.command).equals(y.id + y.label + y.type + y.pkg + y.uri + y.command)) return false;
+        }
+        return true;
+    }
+
+    /** Re-renders an open settings page in place (new code, PC paired, sources switched). */
+    private void refreshMenu(String key) {
+        if (!resumed || menu == null || !menu.isShowing() || !key.equals(menuPage)) return;
+        linkRefreshing = true;
+        menu.dismiss();
+        linkRefreshing = false;
+        showMenu(key, null);
+    }
+
+    /** The PC pushed something: credits only refresh the panes; theme/wallpaper/layout rebuild the screen. */
+    private void onLinkConfig() {
+        if (!resumed) return;   // onResume compares the config anyway
+        LauncherConfig cfg = LauncherConfig.get(this);
+        if (cfg == builtWith) return;
+        // Compared in memory (LauncherConfig.restSig): no extra file read on the UI thread.
+        if (builtWith != null && cfg.restSig.equals(builtWith.restSig) && cfg.dataSig.equals(builtWith.dataSig)) {
+            // Only the agent list (PUT /v1/agents, every 60 s) changed: update in place, keep focus.
+            builtWith = cfg;
+            updateAgentsPane();
+            return;
+        }
+        if (builtWith != null && cfg.restSig.equals(builtWith.restSig)) {
+            boolean scChanged = !sameShortcuts(builtWith, cfg);
+            builtWith = cfg;
+            buildPanes();   // PC panes may come, go or change size
+            if (scChanged) applyShortcuts();
+            refreshMenu("ai");
+            return;
+        }
+        if (menu != null && menu.isShowing()) {
+            linkConfigPending = true;   // rebuild when the menu closes
+            return;
+        }
+        builtWith = null;
+        recreate();
+    }
+
+    /** Config the views were built with; a newer JSON file (adb push, LAN companion) rebuilds the screen. */
+    private LauncherConfig builtWith;
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        OmarchyLink.sweepCasts(this);   // 24 h cleanup of cast uploads (no-op when nothing was ever cast)
+        LauncherConfig cfg = LauncherConfig.get(this);
+        if (builtWith != null && cfg != builtWith && !cfg.restSig.equals(builtWith.restSig)) {
+            builtWith = null;
+            recreate();
+            return;
+        }
+        builtWith = cfg;
+        resumed = true;
+        OmarchyLink.setHomeVisible(true);
+        hideSaver();   // back from the screensaver window (own process)
+        ((WallpaperView) findViewById(R.id.wallpaper)).refreshIfChanged();
+        platesSig = "";
+        resetIdle();
+        glassShown = false;
+        glass.setAlpha(0f);
+        heroShown = false;
+        heroName.setAlpha(0f);
+        ambient.setAlpha(0f);
+        // Read these before reload(): rebinding can move focus to the first tile and overwrite them.
+        final String returnKey = lastFocusedKey;
+        final int returnSlot = lastFocused;
+        reloadApps();
+        applyTv();
+        // Terminal-style entrance: the wordmark decrypts; the prompt is just user@omarchytv:~$ and a block cursor.
+        cursor.setBackgroundColor(Theme.cur().fg);
+        cursor.setVisibility(View.VISIBLE);
+        updateWifiLabel();
+        buildPanes();
+        if (home != null) {
+            home.bind(cfg, adapter);
+            Weather.refreshAuto(this, cfg, home::refresh);
+        }
+        // Stock launcher back as home after a reboot? Ask once per boot, gently; never change it ourselves.
+        if (!HomeCheck.isDefaultHome(this) && (getIntent().getBooleanExtra(HomeCheck.EXTRA_ASK, false) || HomeCheck.shouldAsk(this))) {
+            getIntent().removeExtra(HomeCheck.EXTRA_ASK);
+            HomeCheck.asked(this);
+            handler.postDelayed(this::homePrompt, 600);
+        }
+        // The agents pane is on screen: ask the PC for fresh activity (nothing is sent with no PC connected).
+        if (agentsPane() != null) OmarchyLink.agentSnapshot();
+        handler.postDelayed(minuteTick, untilNextMinute());
+        handler.postDelayed(blink, BLINK_MS);
+
+        // Return to the app we left from, or the same slot if that app is gone. Always refocus: after
+        // reload() the view that holds focus may no longer show the app it had.
+        grid.post(() -> {
+            if (home != null) home.onHomeShown();   // v2.10: TV tile focused, logo animation (home only)
+            else focusTile(Math.max(0, returnSlot));
+            if (reopenPage != null) {
+                // Live preview: the screen was rebuilt with the new setting; bring the menu back.
+                String page = reopenPage, row = reopenRow;
+                reopenPage = null;
+                reopenRow = null;
+                grid.postDelayed(() -> showMenu(page, row), 60);
+            }
+        });
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        resumed = false;
+        OmarchyLink.setHomeVisible(false);
+        handler.removeCallbacks(idle);
+        handler.removeCallbacks(minuteTick);
+        handler.removeCallbacks(blink);
+        handler.removeCallbacks(agentsTick);
+        if (home != null) {
+            home.stopLogo();   // no timers while the home is not visible
+            if (home.movingApp >= 0) finishHomeMove(false);
+        }
+        if (movingPos >= 0) finishMove(false);
+        if (menu != null && menu.isShowing()) menu.dismiss();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        ConnectivityManager cm = getSystemService(ConnectivityManager.class);
+        if (cm != null) cm.unregisterNetworkCallback(networkCallback);
+        OmarchyLink.removeListener(linkListener);
+    }
+
+    @Override
+    public void onBackPressed() {
+        // Home screen: Back goes nowhere. Opened while another launcher is home (reboot check): Back leaves.
+        if (!HomeCheck.isDefaultHome(this)) moveTaskToBack(true);
+    }
+
+    // ---- glass highlight -------------------------------------------------------------------------
+
+    @Override
+    public void onTileFocused(int position, View card) {
+        boolean app = position < adapter.getItemCount();
+        boolean shortcut = !app && position < adapter.getItemCount() + sc.getItemCount();
+        focusSection = shortcut ? 3 : !app ? 2 : position < COLUMNS ? 0 : 1;
+        tv.setFocusedSection(focusSection == 2);
+        sc.setFocusedSection(focusSection == 3);
+        if (paneRow2 != null) paneRow2.animate().alpha(focusSection == 0 ? 1f : 0f).setDuration(120).start();
+        if (focusSection > 1 && dock.cursorOn) {
+            dock.cursorOn = false;
+            grid.invalidate();
+        }
+        if (app) {
+            lastFocused = position;
+            lastFocusedKey = adapter.keyAt(position);
+            updateWorkspaces(position / COLUMNS);
+        }
+        // Tile rect in root coordinates, using layout positions (ignores the scale animation).
+        Rect r = new Rect(0, 0, card.getWidth(), card.getHeight());
+        root.offsetDescendantRectToMyCoords(card, r);
+        float pad = 6f * density;        // matches FocusFrameView's halo inset
+        float w = card.getWidth() * AppAdapter.FOCUS_SCALE + 2 * pad;
+        float h = card.getHeight() * AppAdapter.FOCUS_SCALE + 2 * pad;
+        float x = r.exactCenterX() - w / 2f;
+        float y = r.exactCenterY() - h / 2f;
+
+        ViewGroup.LayoutParams lp = glass.getLayoutParams();
+        if (lp.width != (int) w || lp.height != (int) h) {
+            lp.width = (int) w;
+            lp.height = (int) h;
+            glass.setLayoutParams(lp);
+            glass.setRadius(0f);
+        }
+        glassTargetX = x;
+        glassTargetY = y;
+        if (!glassShown) {
+            springX.cancel();
+            springY.cancel();
+            glass.setTranslationX(x);
+            glass.setTranslationY(y);
+            glass.animate().alpha(1f).setDuration(90).start();
+            glassShown = true;
+        } else {
+            springX.animateToFinalPosition(x);
+            springY.animateToFinalPosition(y);
+        }
+        View item = (View) card.getParent();
+        if (app && position < COLUMNS) {
+            // Dock: park it at the bottom of the screen and show the top shelf for this app.
+            int decoratedTop = item.getTop() - (int) (6 * density);
+            int dy = decoratedTop - grid.getPaddingTop();
+            if (Math.abs(dy) > 1) grid.smoothScrollBy(0, dy);
+            showHero(position, r.top - dy);
+        } else {
+            hideHero();
+            // Fixed focus line (leanback): every row - apps, > Omarchy, > TV - comes to rest where the dock sits.
+            int dy = item.getTop() - gridFrame.focusLine();
+            if (Math.abs(dy) > 1) grid.smoothScrollBy(0, dy);
+        }
+        updateGridClip(position, app, shortcut);
+    }
+
+    // ---- top shelf -------------------------------------------------------------------------------
+
+    /** Waybar-style workspace indicators: one per row (1 = dock), the focused row highlighted. */
+    private void updateWorkspaces(int activeRow) {
+        int rows = Math.max(1, Math.min(9, (adapter.getItemCount() + COLUMNS - 1) / COLUMNS));
+        if (workspaces.getChildCount() != rows) {
+            workspaces.removeAllViews();
+            for (int i = 0; i < rows; i++) {
+                TextView t = (TextView) Theme.applied(getLayoutInflater().inflate(R.layout.item_workspace, workspaces, false));
+                t.setText(String.valueOf(i + 1));
+                workspaces.addView(t);
+            }
+            activeWorkspace = -1;
+        }
+        if (activeRow == activeWorkspace) return;
+        activeWorkspace = activeRow;
+        for (int i = 0; i < workspaces.getChildCount(); i++) workspaces.getChildAt(i).setActivated(i == activeRow);
+    }
+
+    private String platesSig = "";
+
+    /**
+     * Omarchy look: the wallpaper stays untouched, so readability comes from the windows' own backgrounds.
+     * Each pane gets the user's transparency, raised only as far as its dimmest text needs
+     * for >= 4.5:1 over the brightest wallpaper pixel behind it. Cheap; only runs when something moved.
+     */
+    private void updatePlates() {
+        if (root.getHeight() == 0) return;
+        WallpaperView wall = findViewById(R.id.wallpaper);
+        LauncherConfig cfg = LauncherConfig.get(this);
+        java.util.List<View> plates = new java.util.ArrayList<>();
+        for (int i = 0; i < panes.getChildCount(); i++) {
+            View row = panes.getChildAt(i);
+            if (row instanceof ViewGroup) {
+                for (int k = 0; k < ((ViewGroup) row).getChildCount(); k++) plates.add(((ViewGroup) row).getChildAt(k));
+            }
+        }
+        StringBuilder sig = new StringBuilder().append(wall.buildId).append(':').append(cfg.transparency).append(':');
+        int[] r = new int[2], o = new int[2];
+        root.getLocationInWindow(o);
+        android.graphics.RectF[] rects = new android.graphics.RectF[plates.size()];
+        for (int i = 0; i < plates.size(); i++) {
+            View v = plates.get(i);
+            v.getLocationInWindow(r);
+            rects[i] = new android.graphics.RectF(r[0] - o[0], r[1] - o[1], r[0] - o[0] + v.getWidth(), r[1] - o[1] + v.getHeight());
+            sig.append(rects[i].toShortString());
+        }
+        if (sig.toString().equals(platesSig)) return;
+        platesSig = sig.toString();
+        for (int i = 0; i < plates.size(); i++) {
+            if (rects[i].isEmpty()) continue;
+            float a = Surfaces.plateAlpha(wall.worstBehind(rects[i]), cfg.transparency,
+                    cfg.theme.fgDim & 0xFFFFFF, cfg.theme.fgBright & 0xFFFFFF, cfg.accent & 0xFFFFFF);
+            int color = (Math.round(a * 255) << 24) | Surfaces.bg();
+            View v = plates.get(i);
+            v.setBackground(paneBackground(color));
+        }
+    }
+
+    /** Waybar strip at the Layout → Transparency alpha, keeping its thin bottom rule. */
+    /** Omarchy shell [bar]: background = theme background, background-alpha = 1.0, text = foreground. */
+    private void applySurfaces() {
+        applyBar(0xFF000000 | Surfaces.bg());
+    }
+
+    private void applyBar(int color) {
+        android.graphics.drawable.GradientDrawable fill = new android.graphics.drawable.GradientDrawable();
+        fill.setColor(color);
+        android.graphics.drawable.ColorDrawable rule = new android.graphics.drawable.ColorDrawable(Theme.m(0xFF292E42));
+        android.graphics.drawable.LayerDrawable bar = new android.graphics.drawable.LayerDrawable(
+                new android.graphics.drawable.Drawable[]{rule, fill});
+        bar.setLayerInset(1, 0, 0, 0, Math.round(2 * density));
+        findViewById(R.id.bar).setBackground(bar);
+    }
+
+    /** Pane surface: theme bg at the Layout → Transparency alpha (raised by updatePlates if needed); text opaque. */
+    private android.graphics.drawable.Drawable paneBackground(int color) {
+        // Same window style as the tiles (Hyprland inactive window: theme border, border_size from Layout).
+        android.graphics.drawable.GradientDrawable d = new android.graphics.drawable.GradientDrawable();
+        d.setColor(color);
+        d.setStroke(Math.max(1, Math.round(LauncherConfig.get(this).borderDp * density)), Theme.cur().inactiveBorder);   // Hyprland window border
+        return d;
+    }
+
+    /** Keeps the scrolled strip under the panes, and pins the section prompt once its own prompt scrolled away. */
+    private void updateGridClip(int position, boolean app, boolean shortcut) {
+        int minTop = 0;
+        if (panes.getVisibility() == View.VISIBLE) {
+            int bottom = 0;
+            for (int i = 0; i < panes.getChildCount(); i++) {
+                View row = panes.getChildAt(i);
+                if (row.getVisibility() != View.VISIBLE || (row == paneRow2 && focusSection != 0)) continue;
+                bottom = Math.max(bottom, panes.getTop() + row.getBottom());
+            }
+            int[] a = new int[2], b = new int[2];
+            root.getLocationInWindow(a);
+            gridFrame.getLocationInWindow(b);
+            if (bottom > 0) minTop = bottom - (b[1] - a[1]) + (int) (8 * density);
+        }
+        gridFrame.setMinTop(Math.max(0, minTop));
+        String sticky = null;
+        if (app && position >= 2 * COLUMNS) sticky = getString(R.string.apps_prompt);       // row 3+: walker header gone
+        else if (shortcut && position - adapter.getItemCount() - 1 >= COLUMNS) sticky = getString(R.string.sc_prompt);
+        gridFrame.setSticky(sticky, LauncherConfig.get(this).accent);
+    }
+
+    private void showHero(int position, float dockTopInRoot) {
+        // Plain app name, smaller than before and above the "> Apps" header, so the header stays a divider.
+        String label = adapter.labelAt(position);
+        int color = adapter.ambientColorAt(position);
+        float y = dockTopInRoot - 14 * density - 34 * density - 10 * density - heroName.getHeight();
+        boolean changed = !label.contentEquals(heroName.getText());
+
+        if (!heroShown) {
+            heroName.setY(y);
+            heroName.setAlpha(1f);
+            TextFx.decrypt(heroName, label, 320);
+            setAmbient(color);
+            ambient.animate().alpha(1f).setDuration(600).start();
+            heroShown = true;
+        } else if (changed) {
+            heroName.setY(y);
+            TextFx.decrypt(heroName, label, 320);
+            if (color != ambientColor) {
+                ambient.animate().alpha(0.35f).setDuration(200).withEndAction(() -> {
+                    setAmbient(color);
+                    ambient.animate().alpha(1f).setDuration(500).start();
+                }).start();
+            }
+        } else {
+            heroName.setY(y);
+        }
+    }
+
+    private void setAmbient(int color) {
+        ambientColor = color;
+        int c = color & 0x00FFFFFF;
+        ambientGlow.setColors(new int[]{0x5C000000 | c, 0x26000000 | c, 0x00000000 | c});
+    }
+
+    private void hideHero() {
+        if (!heroShown) return;
+        heroShown = false;
+        TextFx.finish(heroName, "");
+        heroName.setAlpha(0f);
+        ambient.animate().alpha(0f).setDuration(300).start();
+    }
+
+    private void hideGlass() {
+        if (!glassShown) return;
+        glassShown = false;
+        glass.animate().alpha(0f).setDuration(90).start();
+    }
+
+    // ---- navigation ------------------------------------------------------------------------------
+
+    @Override
+    public boolean onTileVerticalKey(int position, int keyCode) {
+        int count = adapter.getItemCount();
+        int target;
+        if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+            if (position < COLUMNS) return false;          // dock row: let focus move to the top bar
+            target = position - COLUMNS;
+        } else {
+            int lastRowStart = ((count - 1) / COLUMNS) * COLUMNS;
+            if (position >= lastRowStart) {                // last app row: "> omarchy" shortcuts, the TV tile, or stay
+                if (sc.tiles() > 0) {
+                    focusGlobal(count + 1 + Math.min(position % COLUMNS, sc.tiles() - 1));
+                    return true;
+                }
+                int t = tv.tile();
+                if (t >= 0) focusGlobal(tv.offset() + t);
+                return true;
+            }
+            target = Math.min(position + COLUMNS, count - 1);
+        }
+        focusTile(target);
+        return true;
+    }
+
+    private void focusTile(int position) {
+        if (adapter.getItemCount() == 0) return;
+        final int pos = Math.max(0, Math.min(position, adapter.getItemCount() - 1));
+        RecyclerView.ViewHolder vh = grid.findViewHolderForAdapterPosition(pos);
+        if (vh != null) {
+            View card = vh.itemView.findViewById(R.id.card);
+            if (card == null) return;
+            // Already focused (e.g. back from an app): no focus change fires, so restore the glass by hand.
+            if (card.isFocused()) onTileFocused(pos, card);
+            else card.requestFocus();
+            return;
+        }
+        // Not laid out yet: scroll there, then focus once the scroll settles.
+        grid.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrollStateChanged(@NonNull RecyclerView rv, int newState) {
+                if (newState != RecyclerView.SCROLL_STATE_IDLE) return;
+                rv.removeOnScrollListener(this);
+                RecyclerView.ViewHolder h = rv.findViewHolderForAdapterPosition(pos);
+                View target = h != null ? h.itemView.findViewById(R.id.card) : rv.getChildAt(0);
+                if (target != null) target.requestFocus();
+            }
+        });
+        grid.smoothScrollToPosition(pos);
+    }
+
+    // ---- top bar ---------------------------------------------------------------------------------
+
+    /** Shows the Wi-Fi network name on the button when we can read it, otherwise the connection type. */
+    private void updateWifiLabel() {
+        String text = getString(R.string.wifi);
+        try {
+            ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            Network net = cm != null ? cm.getActiveNetwork() : null;
+            NetworkCapabilities caps = net != null ? cm.getNetworkCapabilities(net) : null;
+            if (caps == null) {
+                text = getString(R.string.offline);
+            } else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
+                text = getString(R.string.ethernet);
+            } else if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+                WifiInfo info = wm != null ? wm.getConnectionInfo() : null;
+                String ssid = info != null ? info.getSSID() : null;
+                if (ssid != null) {
+                    ssid = ssid.replace("\"", "").trim();
+                    if (!ssid.isEmpty() && !ssid.contains("unknown") && !ssid.equals("0x")) text = ssid;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        btnWifi.setText(text);
+    }
+
+    private void open(Intent i) {
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            startActivity(i);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /** Dropdown menu under the Inputs pill: HDMI ports (with connection state), AV and Live TV. */
+    private void showInputs() {
+        View anchor = findViewById(R.id.btnInputs);
+        View panel = Theme.applied(getLayoutInflater().inflate(R.layout.popup_inputs, root, false));
+        LinearLayout rows = panel.findViewById(R.id.rows);
+
+        // Compact: as wide as the Inputs pill (a touch wider so "HDMI 1" fits), hanging right below it.
+        int width = Math.max(anchor.getWidth(), (int) (150 * density));
+        final PopupWindow popup = new PopupWindow(panel, width, ViewGroup.LayoutParams.WRAP_CONTENT, true);
+        popup.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));   // needed for Back to dismiss
+        popup.setOutsideTouchable(true);
+        popup.setAnimationStyle(0);
+        popup.setElevation(0f);
+
+        TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
+        boolean sawNonHdmi = false;
+        String tunerId = null;
+        if (tim != null) {
+            List<TvInputInfo> inputs = new ArrayList<>(tim.getTvInputList());
+            // HDMI ports first in port order, then AV and the rest.
+            Collections.sort(inputs, (a, b) -> {
+                boolean ha = a.getType() == TvInputInfo.TYPE_HDMI, hb = b.getType() == TvInputInfo.TYPE_HDMI;
+                if (ha != hb) return ha ? -1 : 1;
+                return String.valueOf(a.loadLabel(this)).compareToIgnoreCase(String.valueOf(b.loadLabel(this)));
+            });
+            // Some TVs (Sony) report every HDMI port as connected whether or not anything is plugged in,
+            // so drop the HDMI status then. A TV with every port really in use loses it too.
+            int hdmiPorts = 0, hdmiConnected = 0;
+            for (TvInputInfo info : inputs) {
+                if (!info.isPassthroughInput() || info.getType() != TvInputInfo.TYPE_HDMI) continue;
+                hdmiPorts++;
+                if (tim.getInputState(info.getId()) == TvInputManager.INPUT_STATE_CONNECTED) hdmiConnected++;
+            }
+            boolean hdmiStateBogus = hdmiPorts > 1 && hdmiConnected == hdmiPorts;
+            for (TvInputInfo info : inputs) {
+                if (info.getType() == TvInputInfo.TYPE_TUNER
+                        && (info.getServiceInfo().applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0
+                        && (tunerId == null || info.getId().compareTo(tunerId) < 0)) {
+                    tunerId = info.getId();
+                }
+                if (!info.isPassthroughInput()) continue;
+                CharSequence l = info.loadLabel(this);
+                String label = l == null ? info.getId() : l.toString();
+                boolean hdmi = info.getType() == TvInputInfo.TYPE_HDMI;
+                if (hdmi && !label.toUpperCase().contains("HDMI")) label = "HDMI " + label;
+                final String id = info.getId();
+                int state = hdmi && hdmiStateBogus ? -1 : tim.getInputState(id);
+                if (!hdmi && rows.getChildCount() > 0 && !sawNonHdmi) addSeparator(rows);
+                if (!hdmi) sawNonHdmi = true;
+                addInputRow(rows, popup, hdmi ? R.drawable.ic_input : R.drawable.ic_av, label, state,
+                        () -> open(new Intent(Intent.ACTION_VIEW).setDataAndType(
+                                TvContract.buildChannelUriForPassthroughInput(id), "vnd.android.cursor.item/channel")));
+            }
+        }
+        Intent liveTv = liveTvPkg.isEmpty() ? null : getPackageManager().getLeanbackLaunchIntentForPackage(liveTvPkg);
+        if (liveTv != null && tunerId != null) {
+            liveTv = new Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(TvContract.buildChannelUriForPassthroughInput(tunerId), "vnd.android.cursor.item/channel")
+                    .setPackage(liveTvPkg);
+        }
+        if (liveTv != null) {
+            if (rows.getChildCount() > 0) addSeparator(rows);
+            final Intent liveTvIntent = liveTv;
+            addInputRow(rows, popup, R.drawable.ic_livetv, getString(R.string.live_tv), -1, () -> open(liveTvIntent));
+        }
+        if (rows.getChildCount() == 0) {
+            Toast.makeText(this, R.string.no_inputs, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Fit the widest row: TVs that report a status on every port (Sony) would otherwise squeeze the names out.
+        panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        popup.setWidth(Math.max(width, panel.getMeasuredWidth()));
+
+        // Appear like a floating terminal window: instant, then the row labels decrypt.
+        popup.showAsDropDown(anchor, 0, (int) (6 * density), Gravity.START);
+        for (int i = 0; i < rows.getChildCount(); i++) {
+            TextView t = rows.getChildAt(i).findViewById(R.id.title);
+            if (t != null) TextFx.decrypt(t, t.getText(), 260);
+        }
+        rows.getChildAt(0).requestFocus();
+    }
+
+    private void addSeparator(LinearLayout rows) {
+        View line = new View(this);
+        line.setBackgroundColor(Theme.m(0xFF292E42));   // tn selection
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (int) density);
+        int m = (int) (6 * density), h = (int) (12 * density);
+        lp.setMargins(h, m, h, m);
+        rows.addView(line, lp);
+    }
+
+    private void addInputRow(LinearLayout rows, PopupWindow popup, int iconRes, String title, int state, Runnable action) {
+        View row = Theme.applied(getLayoutInflater().inflate(R.layout.item_input, rows, false));
+        ((ImageView) row.findViewById(R.id.icon)).setImageResource(iconRes);
+        ((TextView) row.findViewById(R.id.title)).setText(title);
+        TextView status = row.findViewById(R.id.status);
+        View dot = row.findViewById(R.id.dot);
+        // This TV reports "standby" for every port whether or not something is plugged in, so only
+        // definite states are shown.
+        if (state == TvInputManager.INPUT_STATE_CONNECTED) {
+            status.setText(R.string.connected);
+            dot.setVisibility(View.VISIBLE);
+        } else if (state == TvInputManager.INPUT_STATE_DISCONNECTED) {
+            status.setText(R.string.not_connected);
+            dot.setVisibility(View.GONE);
+        } else {
+            status.setVisibility(View.GONE);
+            dot.setVisibility(View.GONE);
+        }
+        row.setOnClickListener(v -> {
+            popup.dismiss();
+            action.run();
+        });
+        rows.addView(row);
+    }
+
+    // ---- logo menu (settings) --------------------------------------------------------------------
+
+    private String str(int res) {
+        return getString(res);
+    }
+
+    private static <T> T next(T[] values, T current) {
+        for (int i = 0; i < values.length; i++) if (values[i].equals(current)) return values[(i + 1) % values.length];
+        return values[0];
+    }
+
+    /** Saves a change and rebuilds the screen behind the menu, which reopens on the same row (live preview). */
+    private void applyLive(String page, String row, LauncherConfig.Edit edit) {
+        LauncherConfig.update(this, edit);
+        reopenPage = page;
+        reopenRow = row;
+        builtWith = null;
+        if (menu != null) menu.dismiss();
+        recreate();
+    }
+
+    private void showMenu(String pageKey, String row) {
+        if (menu != null && menu.isShowing()) menu.dismiss();
+        menu = new AsciiMenu(this, 420);
+        menu.setOnDismiss(() -> {
+            if (linkConfigPending && !linkRefreshing && builtWith != null) {
+                linkConfigPending = false;
+                handler.post(this::onLinkConfig);
+            }
+        });
+        AsciiMenu.Page main = mainPage();
+        AsciiMenu.Page page = pageKey == null ? null : page(pageKey);
+        if (page == null) menu.showBelow(btnMenu, main);
+        else {
+            menu.showBelow(btnMenu, main, page);
+            if (row != null) menu.focusRow(row);
+        }
+    }
+
+    private AsciiMenu.Page page(String key) {
+        switch (key) {
+            case "launcher": return launcherPage();
+            case "layout": return layoutPage();
+            case "wallpaper": return wallpaperPage();
+            case "themes": return themesPage();
+            case "arrange": return arrangePage();
+            case "screensaver": return screensaverPage();
+            case "hidden": return hiddenPage();
+            case "link": return linkPage();
+            case "ai": return aiPage();
+            case "widgets": return widgetsPage();
+            case "tv": return tvPage();
+            case "webapps": return webAppsPage();
+            case "assistant": return assistantPage();
+            default: return null;
+        }
+    }
+
+    private AsciiMenu.Page mainPage() {
+        return new AsciiMenu.Page(str(R.string.menu_title))
+                .add(str(R.string.search_entry), "[mic]", r -> {
+                    handler.post(this::startVoiceSearch);
+                    return false;
+                })
+                .add(str(R.string.ask_entry), "›", r -> {
+                    open(new Intent(this, AskActivity.class));
+                    return false;
+                })
+                .add(str(R.string.menu_launcher), "›", r -> push(launcherPage()))
+                .add(str(R.string.menu_layout), "›", r -> push(layoutPage()))
+                .add(str(R.string.set_tv), "›", r -> push(tvPage()))
+                .add(str(R.string.web_apps), "›", r -> push(webAppsPage()))
+                .add(str(R.string.ask_settings), "›", r -> push(assistantPage()))
+                .add(str(R.string.menu_wallpaper), "›", r -> push(wallpaperPage()))
+                .add(str(R.string.menu_reorder), null, r -> {
+                    Toast.makeText(this, R.string.reorder_hint, Toast.LENGTH_LONG).show();
+                    return false;
+                })
+                .add(str(R.string.menu_screensaver), "›", r -> push(screensaverPage()))
+                .add(str(R.string.ai_settings), "›", r -> push(aiPage()))
+                .add(str(R.string.set_widgets), "›", r -> push(widgetsPage()))
+                .add(str(R.string.menu_link), "›", r -> {
+                    OmarchyLink.openPairing();   // new code each time the page opens
+                    LauncherConfig.update(this, j -> {
+                        link(j).remove("pairingCode");   // v2 draft kept these in the public file
+                        link(j).remove("token");
+                        link(j).remove("pc");
+                    });
+                    builtWith = LauncherConfig.get(this);
+                    return push(linkPage());
+                })
+                .add(str(R.string.settings), null, r -> {
+                    open(new Intent(Settings.ACTION_SETTINGS));
+                    return false;
+                })
+                .add(str(R.string.menu_about), null, r -> {
+                    handler.post(this::showAbout);
+                    return false;
+                });
+    }
+
+    private boolean push(AsciiMenu.Page p) {
+        menu.push(p);
+        return true;
+    }
+
+    static String promptText(LauncherConfig c) {
+        return c.promptUser + "@" + c.promptHost + ":~$";
+    }
+
+    /** Prompt name / host name with the TV keyboard; sanitised to [a-z0-9._-], max 16 (empty = default). */
+    private void promptDialog(boolean host) {
+        LauncherConfig cfg = LauncherConfig.get(this);
+        android.widget.EditText e = new android.widget.EditText(this);
+        e.setSingleLine(true);
+        e.setText(host ? cfg.promptHost : cfg.promptUser);
+        e.setSelection(e.getText().length());
+        e.setHint(host ? "omarchytv" : "user");
+        e.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        e.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(16)});
+        String row = str(host ? R.string.set_prompt_host : R.string.set_prompt_name);
+        new android.app.AlertDialog.Builder(this)
+                .setTitle(row)
+                .setView(e)
+                .setPositiveButton(android.R.string.ok, (d, w) -> {
+                    String v = LauncherConfig.promptPart(e.getText().toString(), host ? "omarchytv" : "user");
+                    applyLive("launcher", row, j -> {
+                        org.json.JSONObject p = j.optJSONObject("prompt");
+                        if (p == null) j.put("prompt", p = new org.json.JSONObject());
+                        p.put(host ? "host" : "user", v);
+                    });
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private AsciiMenu.Page launcherPage() {
+        LauncherConfig cfg = LauncherConfig.get(this);
+        String[] langs = {"auto", "en", "it", "de"};
+        String[] sizes = {"small", "medium", "large"};
+        String[] logos = {"omarchy-tv", "omarchy", "original"};
+        AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.menu_launcher));
+        String lLang = str(R.string.set_language), lSize = str(R.string.set_ui_size), lLogo = str(R.string.set_logo),
+                lAcc = str(R.string.set_accent);
+        p.add(lLang, langLabel(cfg.language), r -> {
+            String n = next(langs, cfg.language);
+            applyLive("launcher", lLang, j -> j.put("language", n));
+            return true;
+        });
+        p.add(lSize, sizeLabel(cfg.uiSize), r -> {
+            String n = next(sizes, cfg.uiSize);
+            applyLive("launcher", lSize, j -> j.put("uiSize", n));
+            return true;
+        });
+        p.add(lLogo, logoLabel(cfg.logo), r -> {
+            String n = next(logos, cfg.logo);
+            applyLive("launcher", lLogo, j -> j.put("logo", n));
+            return true;
+        });
+        // Theme = an Omarchy stock theme (bundled palettes); the PC's Omarchy Link sync overrides it with the live one.
+        String[] themes = Theme.names(this);
+        p.add(lAcc, Theme.cur().name, r -> {
+            String n = next(themes, Theme.cur().name);
+            applyLive("launcher", lAcc, j -> {
+                org.json.JSONObject t = new org.json.JSONObject();
+                t.put("name", n);
+                t.put("source", "tv");
+                j.put("theme", t);
+                j.put("wallpaper_bg", 0);
+            });
+            return true;
+        });
+        // v2.10: the old per-pane toggles (clock, ai, sysinfo, ...) drove the removed pane layer and did nothing on the
+        // home; every home panel is switched in Widgets (workspace 5).
+        p.add(str(R.string.set_widgets), "›", r -> push(widgetsPage()));
+        p.add(str(R.string.set_prompt_name), cfg.promptUser, r -> {
+            handler.post(() -> promptDialog(false));
+            return false;
+        });
+        p.add(str(R.string.set_prompt_host), cfg.promptHost, r -> {
+            handler.post(() -> promptDialog(true));
+            return false;
+        });
+        // "Originale": stock Sony home + screensaver and back, through the TV's own ADB (opt-in, see Originale).
+        p.add(str(R.string.set_originale), str(Originale.isOriginal(this) ? R.string.on : R.string.off), r -> {
+            boolean back = Originale.isOriginal(this);
+            Toast.makeText(this, R.string.originale_wait, Toast.LENGTH_LONG).show();
+            new Thread(() -> {
+                String msg;
+                try {
+                    msg = back ? str(Originale.toOmarchy(this) ? R.string.originale_omarchy : R.string.originale_reverted)
+                            : str(R.string.originale_on);
+                } catch (Throwable e) {
+                    msg = str(R.string.originale_no_adb);
+                    handler.post(() -> Originale.fallback(this));
+                }
+                String m = msg;
+                handler.post(() -> Toast.makeText(this, m, Toast.LENGTH_LONG).show());
+            }, "originale").start();
+            return false;
+        });
+        p.add(str(R.string.set_hidden), String.valueOf(cfg.hidden.size()), r -> push(hiddenPage()));
+        p.add(str(R.string.set_reset_order), null, r -> {
+            LauncherConfig.update(this, j -> {
+                j.remove("order");
+                j.remove("dock");
+            });
+            Toast.makeText(this, R.string.order_reset, Toast.LENGTH_SHORT).show();
+            builtWith = LauncherConfig.get(this);
+            reloadApps();
+            return false;
+        });
+        return p;
+    }
+
+    /** "> home": OmarchyTV is not the default home any more (Omarchy menu card, nothing changes by itself). */
+    private void homePrompt() {
+        if (!resumed || (menu != null && menu.isShowing())) return;
+        AsciiMenu.Page p = new AsciiMenu.Page("home  ·  " + str(R.string.home_check_title));
+        p.hint(str(R.string.home_check_hint));
+        p.add(str(R.string.home_check_restore), null, r -> {
+            Intent i = new Intent(Settings.ACTION_HOME_SETTINGS);
+            if (i.resolveActivity(getPackageManager()) != null) open(i);
+            else {
+                // Android TV often has no "Default home" screen: the HOME chooser ("Always"), or the kit's script.
+                Intent home = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
+                open(Intent.createChooser(home, str(R.string.home_check_title)));
+                Toast.makeText(this, R.string.home_check_adb, Toast.LENGTH_LONG).show();
+            }
+            return false;
+        });
+        // Not now / Don't ask again: back to whatever home the TV has set (nothing changed).
+        p.add(str(R.string.home_check_later), null, r -> {
+            handler.post(() -> moveTaskToBack(true));
+            return false;
+        });
+        p.add(str(R.string.home_check_never), null, r -> {
+            HomeCheck.never(this);
+            handler.post(() -> moveTaskToBack(true));
+            return false;
+        });
+        menu = new AsciiMenu(this, 900);   // v2.10: wide enough that the hint line is not cut with "…"
+        menu.showBelow(btnMenu, p);
+    }
+
+    /** "Medium · 5 per row". */
+    private String appSizeLabel(String size) {
+        int i = java.util.Arrays.asList(LauncherConfig.APP_SIZES).indexOf(size);
+        int[] names = {R.string.size_large, R.string.size_medium, R.string.size_small, R.string.size_compact};
+        return getString(names[Math.max(0, i)]) + "  ·  " + getString(R.string.per_row, Math.max(0, i) + 4);
+    }
+
+    /** Hyprland-style geometry, each a few remote-friendly steps; OK goes to the next step (wraps). */
+    private AsciiMenu.Page layoutPage() {
+        LauncherConfig cfg = LauncherConfig.get(this);
+        AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.menu_layout) + "  ·  " + str(R.string.step_hint));
+        Float[] scales = {0.85f, 1.0f, 1.15f, 1.3f};
+        Float[] tiles = {0.85f, 0.92f, 1.0f, 1.1f};   // 1.1 is the widest that fits 4 columns with a gutter
+        Integer[] gaps = {0, 5, 8, 12, 16};
+        Integer[] borders = {1, 2, 3, 4};
+        String lText = str(R.string.set_text), lTile = str(R.string.set_tiles), lGap = str(R.string.set_gaps),
+                lBorder = str(R.string.set_border), lTrans = str(R.string.set_transparency);
+        Integer[] trans = new Integer[Surfaces.STEPS.length];
+        for (int i = 0; i < trans.length; i++) trans[i] = Surfaces.STEPS[i];
+        p.add(lText, steps(scales, cfg.fontScale), r -> {
+            float n = nextF(scales, cfg.fontScale);
+            applyLive("layout", lText, j -> geometry(j).put("fontScale", n));
+            return true;
+        });
+        String lSize = str(R.string.set_app_size);
+        p.add(lSize, appSizeLabel(cfg.appSize), r -> {
+            String n = next(LauncherConfig.APP_SIZES, cfg.appSize);
+            applyLive("layout", lSize, j -> geometry(j).put("appSize", n));
+            return true;
+        });
+        p.add(lTile, steps(tiles, cfg.tileScale), r -> {
+            float n = nextF(tiles, cfg.tileScale);
+            applyLive("layout", lTile, j -> geometry(j).put("tileScale", n));
+            return true;
+        });
+        p.add(lGap, stepsI(gaps, cfg.gapDp), r -> {
+            int n = next(gaps, cfg.gapDp);
+            applyLive("layout", lGap, j -> geometry(j).put("gaps", n));
+            return true;
+        });
+        p.add(lBorder, stepsI(borders, cfg.borderDp), r -> {
+            int n = next(borders, cfg.borderDp);
+            applyLive("layout", lBorder, j -> geometry(j).put("border", n));
+            return true;
+        });
+        p.add(lTrans, stepsI(trans, cfg.transparency) + "%", r -> {
+            int n = next(trans, cfg.transparency);
+            applyLive("layout", lTrans, j -> geometry(j).put("transparency", n));
+            return true;
+        });
+        String lDim = str(R.string.set_wallpaper_dim);
+        p.add(lDim, dimLabel(cfg.wallpaperDim), r -> {
+            String n = next(Surfaces.DIM, cfg.wallpaperDim);
+            applyLive("layout", lDim, j -> geometry(j).put("wallpaperDim", n));
+            return true;
+        });
+        return p;
+    }
+
+    /** "Also use as system screensaver": enable/disable our DreamService components (own components only). */
+    private void applyDreams(boolean on) {
+        PackageManager pm = getPackageManager();
+        for (Class<?> c : new Class<?>[]{OmarchyDream.class, ClockDream.class}) {
+            // v2.10: OmarchyDream stays enabled (manifest default) so DreamManager always finds it; ClockDream follows the setting.
+            int state = on ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                    : c == OmarchyDream.class ? PackageManager.COMPONENT_ENABLED_STATE_DEFAULT : PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
+            android.content.ComponentName cn = new android.content.ComponentName(this, c);
+            try {
+                if (pm.getComponentEnabledSetting(cn) != state) pm.setComponentEnabledSetting(cn, state, PackageManager.DONT_KILL_APP);
+            } catch (RuntimeException ignored) {
+            }
+        }
+    }
+
+    /**
+     * Startup: keep the dreams enabled for anyone who already picked one as the TV screensaver (older installs
+     * set screensaver_components over adb), otherwise follow the setting (default off). Runs off the UI thread.
+     */
+    private void syncDreams() {
+        final boolean wanted = LauncherConfig.get(this).screensaverSystem;
+        final Context app = getApplicationContext();
+        new Thread(() -> {
+            boolean on = wanted;
+            if (!on) {
+                try {
+                    String cur = Settings.Secure.getString(app.getContentResolver(), "screensaver_components");
+                    on = cur != null && cur.contains(app.getPackageName() + "/");
+                } catch (RuntimeException ignored) {
+                }
+            }
+            final boolean fOn = on;
+            handler.post(() -> applyDreams(fOn));
+        }, "dreams").start();
+    }
+
+    private String dimLabel(String v) {
+        switch (Surfaces.dimLevel(v)) {
+            case 1: return str(R.string.dim_light);
+            case 2: return str(R.string.dim_medium);
+            default: return str(R.string.dim_off);
+        }
+    }
+
+    private static org.json.JSONObject geometry(org.json.JSONObject j) throws org.json.JSONException {
+        org.json.JSONObject g = j.optJSONObject("geometry");
+        if (g == null) {
+            g = new org.json.JSONObject();
+            j.put("geometry", g);
+        }
+        return g;
+    }
+
+    private static float nextF(Float[] values, float current) {
+        int best = 0;
+        for (int i = 0; i < values.length; i++) if (Math.abs(values[i] - current) < Math.abs(values[best] - current)) best = i;
+        return values[(best + 1) % values.length];
+    }
+
+    /** "[■■□□] 100%" style step meter. */
+    private static String steps(Float[] values, float current) {
+        int best = 0;
+        for (int i = 0; i < values.length; i++) if (Math.abs(values[i] - current) < Math.abs(values[best] - current)) best = i;
+        StringBuilder b = new StringBuilder("[");
+        for (int i = 0; i < values.length; i++) b.append(i <= best ? '■' : '□');
+        return b.append("] ").append(Math.round(current * 100)).append('%').toString();
+    }
+
+    private static String stepsI(Integer[] values, int current) {
+        StringBuilder b = new StringBuilder("[");
+        for (Integer v : values) b.append(v <= current ? '■' : '□');
+        return b.append("] ").append(current).append("dp").toString();
+    }
+
+    /** v2.10 "Disponi riquadri": pick a home panel, move it with the D-pad (OK saves, Back cancels), or reset. */
+    private AsciiMenu.Page arrangePage() {
+        AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.v210_arrange));
+        int[] names = {R.string.v210_w_term, R.string.v210_w_weather, R.string.v210_w_pc, R.string.v210_w_ai, R.string.v210_w_deploys};
+        for (int i = 0; i < HomeV29.PANEL_IDS.length; i++) {
+            final String id = HomeV29.PANEL_IDS[i];
+            View v = home.panelView(id);
+            boolean shown = v != null && v.getVisibility() == View.VISIBLE;
+            p.add(str(names[i]), shown ? "›" : str(R.string.off), r -> {
+                if (!shown) return true;
+                if (menu != null) menu.dismiss();
+                setWorkspace(1);
+                home.post(() -> {
+                    if (home.editPanel(id)) Toast.makeText(this, R.string.v210_arrange_hint, Toast.LENGTH_LONG).show();
+                });
+                return false;
+            });
+        }
+        p.add(str(R.string.v210_arrange_reset), null, r -> {
+            if (menu != null) menu.dismiss();
+            sysSet(j -> j.remove("panelPos"));
+            return false;
+        });
+        p.hint(str(R.string.v210_arrange_hint));
+        return p;
+    }
+
+    /** v2.10: every bundled Omarchy theme (like the PC's theme menu), then its backgrounds. */
+    private AsciiMenu.Page themesPage() {
+        AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.v210_sys_themes));
+        String lBg = str(R.string.menu_wallpaper);
+        p.add(lBg, "›", r -> push(wallpaperPage()));
+        for (String n : Theme.names(this)) {
+            p.add(n, n.equals(Theme.cur().name) ? str(R.string.mark_current) : "", r -> {
+                applyLive("themes", n, j -> {
+                    org.json.JSONObject t = new org.json.JSONObject();
+                    t.put("name", n);
+                    t.put("source", "tv");
+                    j.put("theme", t);
+                    j.put("wallpaper_bg", 0);
+                    if ("procedural".equals(j.optString("wallpaper"))) j.put("wallpaper", "omarchy");
+                });
+                return true;
+            });
+        }
+        // v2.10.1: themes pushed from the PC (omarchy-tv themes push), each background selectable.
+        java.io.File ld = linkDir();
+        for (String n : com.omarchytv.home.link.CustomThemes.names(ld)) {
+            java.io.File[] bgs = com.omarchytv.home.link.CustomThemes.backgrounds(ld, n);
+            int count = Math.max(1, bgs.length);
+            for (int i = 0; i < count; i++) {
+                final int idx = i;
+                String label = "★ " + n + (bgs.length > 1 ? " · " + (i + 1) + "/" + bgs.length : "");
+                p.add(label, n.equals(Theme.cur().name) ? str(R.string.mark_current) : "", r -> {
+                    applyLive("themes", label, j -> com.omarchytv.home.link.CustomThemes.select(ld, n, idx, j));
+                    return true;
+                });
+            }
+        }
+        return p;
+    }
+
+    /** Same folder as OmarchyLink.wallpaperDir(): the link's files (custom themes live in themes/). */
+    private java.io.File linkDir() {
+        java.io.File d = getExternalFilesDir(null);
+        return new java.io.File(d != null ? d : getFilesDir(), "link");
+    }
+
+    private AsciiMenu.Page wallpaperPage() {
+        LauncherConfig cfg = LauncherConfig.get(this);
+        AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.menu_wallpaper));
+        boolean omarchy = !"procedural".equals(cfg.wallpaper) && !cfg.wallpaper.startsWith("/");
+        String[] bgs = WallpaperView.backgrounds(this, Theme.cur().name);
+        int cur = bgs.length > 0 ? cfg.wallpaperBg % bgs.length : 0;
+        String lNext = str(R.string.wp_next);
+        if (bgs.length > 1) p.add(lNext, (cur + 1) + "/" + bgs.length, r -> {
+            int n = (cur + 1) % bgs.length;
+            applyLive("wallpaper", lNext, j -> j.put("wallpaper", "omarchy").put("wallpaper_bg", n));
+            return true;
+        });
+        for (int i = 0; i < bgs.length; i++) {
+            final int idx = i;
+            String f = bgs[i].substring(bgs[i].lastIndexOf('/') + 1).replaceFirst("^\\d+-", "").replaceFirst("\\.webp$", "");
+            String label = Theme.cur().name + " · " + f;
+            p.add(label, omarchy && idx == cur ? str(R.string.mark_current) : "", r -> {
+                applyLive("wallpaper", label, j -> j.put("wallpaper", "omarchy").put("wallpaper_bg", idx));
+                return true;
+            });
+        }
+        p.add(str(R.string.wp_procedural), "procedural".equals(cfg.wallpaper) ? str(R.string.mark_current) : "", r -> {
+            applyLive("wallpaper", str(R.string.wp_procedural), j -> j.put("wallpaper", "procedural"));
+            return true;
+        });
+        return p;
+    }
+
+    private String idleLabel(int sec) {
+        if (sec <= 0) return str(R.string.ss_never);
+        if (sec % 60 == 0) return (sec / 60) + " min";
+        return String.format(java.util.Locale.getDefault(), "%.1f min", sec / 60f);
+    }
+
+    private AsciiMenu.Page screensaverPage() {
+        LauncherConfig cfg = LauncherConfig.get(this);
+        String[] logos = {"omarchy-tv", "omarchy", "original"};
+        String[] sizes = {"small", "medium", "large"};
+        String lLogo = str(R.string.set_logo), lSize = str(R.string.ss_size), lClock = str(R.string.ss_clock);
+        AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.menu_screensaver));
+        p.add(str(R.string.ss_preview), null, r -> {
+            open(new Intent(this, ScreensaverPreviewActivity.class));
+            return false;
+        });
+        p.add(lLogo, logoLabel(cfg.screensaverArt), r -> {
+            String n = next(logos, cfg.screensaverArt);
+            applyLive("screensaver", lLogo, j -> screensaver(j).put("art", n));
+            return true;
+        });
+        p.add(lSize, sizeLabel(cfg.screensaverSize), r -> {
+            String n = next(sizes, cfg.screensaverSize);
+            applyLive("screensaver", lSize, j -> screensaver(j).put("size", n));
+            return true;
+        });
+        p.add(lClock, str(cfg.screensaverClock ? R.string.on : R.string.off), r -> {
+            boolean n = !cfg.screensaverClock;
+            applyLive("screensaver", lClock, j -> screensaver(j).put("clock", n));
+            return true;
+        });
+        // v2.10: "Avvia salvaschermo dopo": 1 min, 2,5 min (default, as Omarchy), 5 min, 10 min, never.
+        Integer[] idles = {60, 150, 300, 600, 0};
+        String lIdle = str(R.string.ss_idle), lSys = str(R.string.ss_system_use);
+        p.add(lIdle, idleLabel(cfg.screensaverIdleSec), r -> {
+            int n = next(idles, cfg.screensaverIdleSec);
+            applyLive("screensaver", lIdle, j -> screensaver(j).put("idleSec", n));
+            return true;
+        });
+        p.add(lSys, str(cfg.screensaverSystem ? R.string.on : R.string.off), r -> {
+            boolean n = !cfg.screensaverSystem;
+            applyDreams(n);
+            applyLive("screensaver", lSys, j -> screensaver(j).put("system", n));
+            return true;
+        });
+        if (cfg.screensaverSystem) {
+            p.add(str(R.string.ss_system), null, r -> {
+                open(new Intent(Settings.ACTION_DREAM_SETTINGS));
+                return false;
+            });
+        }
+        return p;
+    }
+
+    // ---- Omarchy Link (omarchy-link/docs/PROTOCOL.md; server in OmarchyLink) --------------------------
+
+    static final int LINK_PORT = com.omarchytv.home.link.LinkServer.PORT;
+    /** Settings page on screen that a Link event may re-render: "link", "ai" or null. */
+    private String menuPage;
+
+    /**
+     * Connect Omarchy Linux. While this page is visible pairing is open (at most 5 minutes) and the mDNS TXT
+     * says pair=1. The code lives in memory only; tokens in internal storage; omarchytv.json gets link.pcs[].
+     */
+    private AsciiMenu.Page linkPage() {
+        String code = OmarchyLink.currentCode();
+        if (code == null) code = OmarchyLink.openPairing();
+        java.util.List<com.omarchytv.home.link.LinkStore.Pc> pcs = OmarchyLink.pcs();
+        String ip = tvAddress();
+        AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.menu_link));
+        menuPage = "link";
+        p.onLeave = () -> {
+            if (linkRefreshing) return;
+            menuPage = null;
+            OmarchyLink.closePairing();
+        };
+        p.add(str(R.string.link_tv_ip), ip == null ? str(R.string.offline) : ip + ":" + LINK_PORT, r -> true);
+        p.add(str(R.string.link_code), code.substring(0, 3) + " " + code.substring(3), r -> true);
+        p.add(str(R.string.link_status), !pcs.isEmpty() ? getString(R.string.link_paired_n, pcs.size()) : str(R.string.link_waiting), r -> true);
+        for (com.omarchytv.home.link.LinkStore.Pc pc : pcs) {
+            final String id = pc.id;
+            String where = pc.lastAddress == null ? "" : " · " + pc.lastAddress;
+            String state = str(OmarchyLink.connected(id) ? R.string.link_online : R.string.link_offline)
+                    + " · " + str(R.string.link_forget_short);
+            p.add(pc.name + where, state, r -> {
+                OmarchyLink.forget(id);   // sends "unpaired", closes its sockets, deletes the token
+                return true;              // the "pcs" event re-renders this page
+            });
+        }
+        // v2.10: Send to TV (cast) is off by default.
+        String lCast = str(R.string.v210_cast);
+        p.add(lCast, str(LauncherConfig.get(this).castEnabled ? R.string.on : R.string.off), r -> {
+            boolean n = !LauncherConfig.get(this).castEnabled;
+            builtWith = LauncherConfig.update(this, j -> {
+                org.json.JSONObject c = j.optJSONObject("cast");
+                if (c == null) j.put("cast", c = new org.json.JSONObject());
+                c.put("enabled", n);
+            });
+            CastRouter.reset();
+            r.setValue(str(n ? R.string.on : R.string.off));
+            return true;
+        });
+        p.add(str(R.string.link_new_code), null, r -> {
+            OmarchyLink.openPairing();
+            refreshMenu("link");
+            return true;
+        });
+        p.add(str(R.string.link_service), OmarchyLink.running() ? str(R.string.link_service_on) : str(R.string.link_service_off), r -> true);
+        // Optional extras the PC can use (PROTOCOL.md §6): Back key and the app in front.
+        p.add(str(R.string.link_remote), str(OmarchyRemote.enabled() ? R.string.on : R.string.off), r -> {
+            open(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+            return false;
+        });
+        p.add(str(R.string.link_usage), str(usageAccess() ? R.string.on : R.string.off), r -> {
+            open(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));
+            return false;
+        });
+        return p;
+    }
+
+    private static org.json.JSONObject pcWidgets(org.json.JSONObject j) throws org.json.JSONException {
+        org.json.JSONObject w = j.optJSONObject("pcWidgets");
+        if (w == null) j.put("pcWidgets", w = new org.json.JSONObject());
+        return w;
+    }
+
+    /** Omarchy widgets: PC panes (all / each), what happens when they do not fit, the "> omarchy" shortcuts row. */
+    private AsciiMenu.Page widgetsPage() {
+        LauncherConfig cfg = LauncherConfig.get(this);
+        AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.set_widgets));
+        String lPanes = str(R.string.set_pc_panes), lOver = str(R.string.set_pane_overflow), lSc = str(R.string.set_pc_shortcuts),
+                lOff = str(R.string.ai_offline_row);
+        // v2.10: each home widget can be switched off ("No" really hides it); the clock widget is gone (bar only).
+        String[][] hw = {{"term", str(R.string.v210_w_term)}, {"weather", str(R.string.v210_w_weather)}, {"pc", str(R.string.v210_w_pc)},
+                {"ai", str(R.string.v210_w_ai)}, {"deploys", str(R.string.v210_w_deploys)}};
+        boolean[] hwOn = {cfg.wTerm, cfg.wWeather, cfg.wPc, cfg.wAi, cfg.wDeploys};
+        for (int i = 0; i < hw.length; i++) {
+            final String id = hw[i][0], label = hw[i][1];
+            final boolean on = hwOn[i];
+            p.add(label, str(on ? R.string.on : R.string.off), r -> {
+                applyLive("widgets", label, j -> {
+                    org.json.JSONObject o = j.optJSONObject("homeWidgets");
+                    if (o == null) j.put("homeWidgets", o = new org.json.JSONObject());
+                    o.put(id, !on);
+                });
+                return true;
+            });
+        }
+        p.add(lSc, cfg.shortcuts.isEmpty() ? "—" : str(cfg.shortcutsOn ? R.string.on : R.string.off), r -> {
+            boolean n = !cfg.shortcutsOn;
+            applyLive("widgets", lSc, j -> pcWidgets(j).put("shortcuts", n));
+            return true;
+        });
+        p.add(lOff, str("hide".equals(cfg.aiOffline) ? R.string.ai_offline_hide : R.string.ai_offline_stale), r -> {
+            String n = "hide".equals(cfg.aiOffline) ? "stale" : "hide";
+            applyLive("widgets", lOff, j -> {
+                org.json.JSONObject ap = j.optJSONObject("aiPane");
+                if (ap == null) j.put("aiPane", ap = new org.json.JSONObject());
+                ap.put("offline", n);
+            });
+            return true;
+        });
+        if (cfg.pcPanes.isEmpty() && cfg.shortcuts.isEmpty()) p.hint(str(R.string.widgets_none));
+        return p;
+    }
+
+    private boolean usageAccess() {
+        android.app.AppOpsManager ops = getSystemService(android.app.AppOpsManager.class);
+        @SuppressWarnings("deprecation")
+        int mode = ops == null ? android.app.AppOpsManager.MODE_ERRORED
+                : ops.checkOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), getPackageName());
+        return mode == android.app.AppOpsManager.MODE_ALLOWED;
+    }
+
+    /**
+     * AI credits: one switch per source the PC mirrors (omarchytv.json "aiSources", only when the PC sent it).
+     * Flipping one sends "ai_sources" with the complete enabled list; the PC answers and re-pushes the credits,
+     * so the switch shows the new state only once the PC confirmed it (an error reverts it with a message).
+     */
+    private AsciiMenu.Page aiPage() {
+        LauncherConfig cfg = LauncherConfig.get(this);
+        AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.ai_settings));
+        menuPage = "ai";
+        p.onLeave = () -> {
+            if (!linkRefreshing) menuPage = null;
+        };
+        String lOff = str(R.string.ai_offline_row);
+        p.add(lOff, str("hide".equals(cfg.aiOffline) ? R.string.ai_offline_hide : R.string.ai_offline_stale), r -> {
+            String n = "hide".equals(cfg.aiOffline) ? "stale" : "hide";
+            applyLive("ai", lOff, j -> {
+                org.json.JSONObject ap = j.optJSONObject("aiPane");
+                if (ap == null) j.put("aiPane", ap = new org.json.JSONObject());
+                ap.put("offline", n);
+            });
+            return true;
+        });
+        if (cfg.aiSources.isEmpty()) {
+            p.hint(str(R.string.ai_empty));
+            return p;
+        }
+        p.hint(str(R.string.ai_sources_hint));
+        for (LauncherConfig.AiSource src : cfg.aiSources) {
+            String value = !src.available ? str(R.string.ai_src_missing) : str(src.enabled ? R.string.on : R.string.off);
+            p.add(src.name, value, r -> {
+                if (!OmarchyLink.connected()) {
+                    Toast.makeText(this, R.string.ask_not_connected, Toast.LENGTH_LONG).show();
+                    return true;
+                }
+                org.json.JSONArray enabled = new org.json.JSONArray();
+                for (LauncherConfig.AiSource o : cfg.aiSources) {
+                    boolean on = o.id.equals(src.id) ? !src.enabled : o.enabled;
+                    if (on) enabled.put(o.id);
+                }
+                String id = Long.toHexString(new java.security.SecureRandom().nextLong());
+                try {
+                    String err = OmarchyLink.aiSources(new org.json.JSONObject().put("id", id).put("enabled", enabled));
+                    if (err != null) {
+                        Toast.makeText(this, "busy".equals(err) ? R.string.ask_busy : R.string.ask_not_connected, Toast.LENGTH_SHORT).show();
+                        return true;
+                    }
+                } catch (org.json.JSONException e) {
+                    return true;
+                }
+                pendingSourcesId = id;
+                r.setValue("…");
+                return true;
+            });
+        }
+        return p;
+    }
+
+    private static org.json.JSONObject link(org.json.JSONObject j) throws org.json.JSONException {
+        org.json.JSONObject l = j.optJSONObject("link");
+        if (l == null) {
+            l = new org.json.JSONObject();
+            j.put("link", l);
+        }
+        return l;
+    }
+
+    /** IPv4 address of the active network (Wi-Fi or Ethernet), or null. */
+    private String tvAddress() {
+        ConnectivityManager cm = getSystemService(ConnectivityManager.class);
+        if (cm == null || cm.getActiveNetwork() == null) return null;
+        android.net.LinkProperties lp = cm.getLinkProperties(cm.getActiveNetwork());
+        if (lp == null) return null;
+        for (android.net.LinkAddress a : lp.getLinkAddresses()) {
+            if (a.getAddress() instanceof java.net.Inet4Address) return a.getAddress().getHostAddress();
+        }
+        return null;
+    }
+
+    private static org.json.JSONObject screensaver(org.json.JSONObject j) throws org.json.JSONException {
+        org.json.JSONObject s = j.optJSONObject("screensaver");
+        if (s == null) {
+            s = new org.json.JSONObject();
+            j.put("screensaver", s);
+        }
+        return s;
+    }
+
+    private AsciiMenu.Page hiddenPage() {
+        LauncherConfig cfg = LauncherConfig.get(this);
+        AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.set_hidden));
+        if (cfg.hidden.isEmpty()) p.add(str(R.string.hidden_none), null, r -> true);
+        for (String pkg : cfg.hidden) {
+            String label = pkg;
+            try {
+                label = String.valueOf(getPackageManager().getApplicationLabel(getPackageManager().getApplicationInfo(pkg, 0)));
+            } catch (Exception ignored) {
+            }
+            p.add(label, str(R.string.unhide), r -> {
+                List<String> list = new ArrayList<>(cfg.hidden);
+                list.remove(pkg);
+                applyLive("hidden", null, j -> j.put("hidden", LauncherConfig.array(list)));
+                return true;
+            });
+        }
+        return p;
+    }
+
+    private String langLabel(String l) {
+        if ("en".equals(l)) return str(R.string.lang_en);
+        if ("it".equals(l)) return str(R.string.lang_it);
+        if ("de".equals(l)) return str(R.string.lang_de);
+        return str(R.string.lang_auto);
+    }
+
+    private String sizeLabel(String s) {
+        return str("small".equals(s) ? R.string.size_small : "large".equals(s) ? R.string.size_large : R.string.size_medium);
+    }
+
+    private String logoLabel(String l) {
+        return str("omarchy".equals(l) ? R.string.logo_omarchy : "original".equals(l) ? R.string.logo_original : R.string.logo_omarchy_tv);
+    }
+
+    private String accentLabel(String a) {
+        return str("omarchy".equals(a) ? R.string.accent_omarchy : "green".equals(a) ? R.string.accent_green : R.string.accent_tokyo);
+    }
+
+    /** About & licences: version, then the bundled NOTICE (third-party components, Omarchy attribution). */
+    private void showAbout() {
+        View panel = Theme.applied(getLayoutInflater().inflate(R.layout.popup_about, null, false));
+        TextView body = panel.findViewById(R.id.aboutText);
+        String version = "";
+        try {
+            version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception ignored) {
+        }
+        StringBuilder b = new StringBuilder(getString(R.string.about_version, version)).append("\n\n");
+        try (java.io.InputStream in = getAssets().open("licenses/NOTICE.txt")) {
+            java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[4096];
+            int n;
+            while ((n = in.read(buf)) > 0) bo.write(buf, 0, n);
+            b.append(new String(bo.toByteArray(), java.nio.charset.StandardCharsets.UTF_8));
+        } catch (java.io.IOException ignored) {
+        }
+        body.setText(b);
+        PopupWindow pw = new PopupWindow(panel, (int) (720 * density), (int) (420 * density), true);
+        pw.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        pw.setAnimationStyle(0);
+        pw.showAtLocation(root, Gravity.CENTER, 0, 0);
+        panel.findViewById(R.id.aboutScroll).requestFocus();
+    }
+
+    // ---- tile context menu + move mode ------------------------------------------------------------
+
+    @Override
+    public void onTileLongPress(int position) {
+        if (movingPos >= 0) return;
+        String pkg = adapter.packageAt(position);
+        if (pkg == null) return;
+        RecyclerView.ViewHolder vh = grid.findViewHolderForAdapterPosition(position);
+        if (vh == null) return;
+        if (menu != null && menu.isShowing()) menu.dismiss();
+        menu = new AsciiMenu(this, 300);
+        AsciiMenu.Page p = new AsciiMenu.Page(adapter.labelAt(position));
+        p.add(str(R.string.ctx_move), "←↑↓→", r -> {
+            grid.post(() -> startMove(position));
+            return false;
+        });
+        p.add(str(R.string.ctx_hide), null, r -> {
+            LauncherConfig.update(this, j -> {
+                List<String> list = new ArrayList<>(LauncherConfig.get(this).hidden);
+                if (!list.contains(pkg)) list.add(pkg);
+                j.put("hidden", LauncherConfig.array(list));
+            });
+            builtWith = LauncherConfig.get(this);
+            reloadApps();
+            grid.post(() -> focusTile(Math.min(position, adapter.getItemCount() - 1)));
+            return false;
+        });
+        LauncherConfig.WebApp webApp = adapter.webAt(position);
+        if (webApp != null) {
+            p.add(str(R.string.web_remove), null, r -> {
+                removeWebApp(webApp.id);
+                return false;
+            });
+        } else {
+            p.add(str(R.string.ctx_info), null, r -> {
+                AppAdapter.openAppInfo(this, pkg);
+                return false;
+            });
+        }
+        // Only user-installed apps: system/preinstalled apps (and the TV's own) are never offered here.
+        if (!adapter.isSystemAt(position)) {
+            p.add(str(R.string.ctx_uninstall), null, r -> {
+                try {
+                    startActivity(new Intent(Intent.ACTION_DELETE, android.net.Uri.parse("package:" + pkg)));
+                } catch (ActivityNotFoundException e) {
+                    Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
+                }
+                return false;
+            });
+        }
+        menu.showBelow(vh.itemView.findViewById(R.id.card), p);
+    }
+
+    private void startMove(int position) {
+        movingPos = position;
+        moveSnapshot = adapter.packagesInOrder();
+        moveHint.setVisibility(View.VISIBLE);
+        panes.setVisibility(View.INVISIBLE);   // the hint sits where the panes are
+        TextFx.type(moveHint, getString(R.string.move_hint), 260);
+        glass.setMoving(true);
+        focusTile(position);
+    }
+
+    private void finishMove(boolean save) {
+        if (movingPos < 0) return;
+        int at = movingPos;
+        movingPos = -1;
+        moveHint.setVisibility(View.GONE);
+        panes.setVisibility(paneViews.isEmpty() ? View.GONE : View.VISIBLE);
+        glass.setMoving(false);
+        if (save) {
+            List<String> pkgs = adapter.packagesInOrder();
+            int d = Math.min(COLUMNS, pkgs.size());
+            List<String> dock = new ArrayList<>(pkgs.subList(0, d));
+            List<String> rest = new ArrayList<>(pkgs.subList(d, pkgs.size()));
+            builtWith = LauncherConfig.update(this, j -> {
+                j.put("dock", LauncherConfig.array(dock));
+                j.put("order", LauncherConfig.array(rest));
+            });
+            Toast.makeText(this, R.string.move_saved, Toast.LENGTH_SHORT).show();
+            focusTile(at);
+        } else if (moveSnapshot != null) {
+            String key = adapter.keyAt(at);
+            adapter.restoreOrder(moveSnapshot);
+            Toast.makeText(this, R.string.move_cancelled, Toast.LENGTH_SHORT).show();
+            grid.post(() -> focusTile(adapter.positionOf(key)));
+        }
+        moveSnapshot = null;
+    }
+
+    // ---- in-launcher screensaver --------------------------------------------------------------------
+    // Shown only after N minutes without remote input while this home screen is resumed and focused (no menu,
+    // no move mode; ask / voice / other apps / Live TV pause the activity, so the timer is off there).
+    // Any key dismisses it back to home and is swallowed. One Handler callback, no wakelock, no
+    // FLAG_KEEP_SCREEN_ON: the TV's own sleep timer still applies.
+
+    /** v2.10: the screensaver is ScreensaverPreviewActivity in its own process (":saver"); true while it is shown. */
+    private boolean saverShown;
+    private int swallowKeyUp = -1;
+    private final Runnable idle = this::onIdle;
+
+    private void resetIdle() {
+        handler.removeCallbacks(idle);
+        int sec = LauncherConfig.get(this).screensaverIdleSec;   // 0 = never
+        if (resumed && sec > 0) handler.postDelayed(idle, sec * 1000L);
+    }
+
+    private void onIdle() {
+        if (!resumed) return;
+        if ((menu != null && menu.isShowing()) || !hasWindowFocus() || movingPos >= 0 || walker != null) {
+            resetIdle();   // something else is on screen: wait a full timeout after it closes
+            return;
+        }
+        saverShown = true;
+        OmarchyLink.setScreensaver(true);
+        try {
+            startActivity(new Intent(this, ScreensaverPreviewActivity.class));
+            overridePendingTransition(0, 0);
+        } catch (Exception e) {
+            hideSaver();
+        }
+    }
+
+    private void hideSaver() {
+        if (!saverShown) return;
+        saverShown = false;
+        OmarchyLink.setScreensaver(false);
+    }
+
+    private final java.util.Set<Integer> loggedKeys = new java.util.HashSet<>();
+
+    /** v2.10: record which remote keys reach the app on this TV (1-5, CH±, voice), once per key per process. */
+    private void logKeyOnce(int kc) {
+        boolean interesting = (kc >= KeyEvent.KEYCODE_0 && kc <= KeyEvent.KEYCODE_9) || kc == KeyEvent.KEYCODE_CHANNEL_UP
+                || kc == KeyEvent.KEYCODE_CHANNEL_DOWN || kc == KeyEvent.KEYCODE_SEARCH || kc == KeyEvent.KEYCODE_VOICE_ASSIST
+                || kc == KeyEvent.KEYCODE_ASSIST || kc == KeyEvent.KEYCODE_PAGE_UP || kc == KeyEvent.KEYCODE_PAGE_DOWN;
+        if (interesting && loggedKeys.add(kc)) android.util.Log.i("OmarchyTV", "tasto ricevuto dal launcher: " + KeyEvent.keyCodeToString(kc));
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);   // HOME pressed while on home: wake up from the screensaver
+        if (intent.getBooleanExtra(HomeCheck.EXTRA_ASK, false)) setIntent(intent);   // HomeCheck from boot
+        hideSaver();
+        resetIdle();
+        if (home != null && walker == null && (menu == null || !menu.isShowing())) {   // HOME key: back to workspace 1
+            if (workspace != 1) setWorkspace(1);
+            home.onHomeShown();
+        }
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent e) {
+        if (swallowKeyUp == e.getKeyCode() && e.getAction() == KeyEvent.ACTION_UP) {
+            swallowKeyUp = -1;
+            return true;
+        }
+        resetIdle();
+        if (walker != null) {
+            if (walker.onKey(e)) return true;
+            return super.dispatchKeyEvent(e);
+        }
+        if (movingPos < 0 && home != null && (menu == null || !menu.isShowing())) {
+            int kc = e.getKeyCode();
+            logKeyOnce(kc);
+            if (home.movingApp >= 0) return home.onKey(e);
+            // Voice / search key: Walker with voice on the home (v2.10 default), the system assistant only if chosen.
+            if ((kc == KeyEvent.KEYCODE_SEARCH || kc == KeyEvent.KEYCODE_VOICE_ASSIST || kc == KeyEvent.KEYCODE_ASSIST)
+                    && "launcher".equals(LauncherConfig.get(this).voiceKey)) {
+                if (e.getAction() == KeyEvent.ACTION_UP) openWalker();
+                return true;
+            }
+            // v2.10 workspaces: 1-5 jump, CH+/CH− next/previous (only reaches us while the launcher is in front).
+            if (kc >= KeyEvent.KEYCODE_1 && kc <= KeyEvent.KEYCODE_5) {
+                if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) setWorkspace(kc - KeyEvent.KEYCODE_0);
+                return true;
+            }
+            if (kc == KeyEvent.KEYCODE_CHANNEL_UP || kc == KeyEvent.KEYCODE_CHANNEL_DOWN || kc == KeyEvent.KEYCODE_PAGE_UP || kc == KeyEvent.KEYCODE_PAGE_DOWN) {
+                boolean up = kc == KeyEvent.KEYCODE_CHANNEL_UP || kc == KeyEvent.KEYCODE_PAGE_DOWN;
+                if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) setWorkspace(up ? workspace % 5 + 1 : (workspace + 3) % 5 + 1);
+                return true;
+            }
+            if (workspace != 1 && kc == KeyEvent.KEYCODE_BACK) {
+                if (e.getAction() == KeyEvent.ACTION_UP) setWorkspace(1);
+                return true;
+            }
+            if (home.onKey(e)) return true;
+        }
+        if (movingPos < 0) return super.dispatchKeyEvent(e);
+        int k = e.getKeyCode();
+        boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
+        int count = adapter.getItemCount();
+        int to = -1;
+        switch (k) {
+            case KeyEvent.KEYCODE_DPAD_LEFT:
+                if (down && movingPos > 0) to = movingPos - 1;
+                break;
+            case KeyEvent.KEYCODE_DPAD_RIGHT:
+                if (down && movingPos < count - 1) to = movingPos + 1;
+                break;
+            case KeyEvent.KEYCODE_DPAD_UP:
+                if (down && movingPos - COLUMNS >= 0) to = movingPos - COLUMNS;
+                break;
+            case KeyEvent.KEYCODE_DPAD_DOWN:
+                if (down && movingPos + COLUMNS < count) to = movingPos + COLUMNS;
+                break;
+            case KeyEvent.KEYCODE_DPAD_CENTER:
+            case KeyEvent.KEYCODE_ENTER:
+            case KeyEvent.KEYCODE_NUMPAD_ENTER:
+                if (!down) finishMove(true);
+                return true;
+            case KeyEvent.KEYCODE_BACK:
+            case KeyEvent.KEYCODE_ESCAPE:
+                if (!down) finishMove(false);
+                return true;
+            case KeyEvent.KEYCODE_HOME:
+                return super.dispatchKeyEvent(e);
+            default:
+                return true;   // swallow everything else while a tile is lifted
+        }
+        if (to >= 0) {
+            adapter.move(movingPos, to);
+            movingPos = to;
+            final int target = to;
+            grid.post(() -> focusTile(target));
+        }
+        return true;
+    }
+
+    // ---- info panes -------------------------------------------------------------------------------
+
+    /** Pane views in both rows, in display order (built-in panes first, then PC panes). */
+    private final List<View> paneViews = new ArrayList<>();
+    private static final int MAX_PANES_PER_ROW = 5;
+    /** Second pane row: shown with the dock row focused, faded out once the grid scrolls under it. */
+    private LinearLayout paneRow2;
+
+    private LinearLayout paneRow() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setBaselineAligned(false);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.gravity = android.view.Gravity.END;
+        row.setLayoutParams(lp);
+        return row;
+    }
+
+    private View newPane(ViewGroup parent, Object tag, String title) {
+        View v = Theme.applied(getLayoutInflater().inflate(R.layout.pane, parent, false));
+        v.setBackground(paneBackground(Surfaces.surface(LauncherConfig.get(this).transparency)));
+        platesSig = "";
+        v.setTag(tag);
+        // Same height for all panes in the row, like tiled windows.
+        v.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        ((LinearLayout.LayoutParams) v.getLayoutParams()).setMarginStart((int) (10 * density));
+        ((TextView) v.findViewById(R.id.paneTitle)).setText("─ " + title + " ─");
+        return v;
+    }
+
+    /**
+     * Top-right panes: the built-in ones (clock, weather, AI credits, sysinfo) in row 1, then the panes the PC
+     * pushed (link.panes). PC panes go into row 1 while they fit next to the wordmark, then into a second row
+     * (or are skipped: setting), and row 2 only shows when it clears the dock. The row never overflows.
+     */
+    private void buildPanes() {
+        panes.removeAllViews();
+        paneRow2 = null;
+        paneViews.clear();
+        if (home != null) {   // v2.10: the old clock / AI panes layer is gone; HomeV29 has its own widgets
+            panes.setVisibility(View.GONE);
+            return;
+        }
+        LauncherConfig cfg = LauncherConfig.get(this);
+        LinearLayout row1 = paneRow();
+        panes.addView(row1);
+        for (String id : cfg.panes) {
+            if (!"clock".equals(id) && !"ai".equals(id) && !"sysinfo".equals(id) && !"weather".equals(id) && !"agents".equals(id)) continue;
+            // Weather is in the default row but has no location out of the box (nothing personal in the
+            // public build): skip it until "weather" {lat, lon} is set, unless the user listed it explicitly.
+            if ("weather".equals(id) && Double.isNaN(cfg.weatherLat) && cfg.panes.equals(defaultPanes())) continue;
+            int title = "clock".equals(id) ? R.string.pane_clock : "ai".equals(id) ? R.string.pane_ai
+                    : "sysinfo".equals(id) ? R.string.pane_sysinfo : "agents".equals(id) ? R.string.pane_agents : R.string.pane_weather;
+            View v = newPane(row1, id, getString(title));
+            if ("clock".equals(id)) ((TextView) v.findViewById(R.id.paneBody)).setLineSpacing(0, 0.95f);
+            if ("agents".equals(id)) setupAgentsPane(v);
+            if ("ai".equals(id) || "agents".equals(id)) {
+                // Compact: smaller text so clock, weather and AI credits fit in one row.
+                ((TextView) v.findViewById(R.id.paneBody)).setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 10f);
+                v.setMinimumWidth(0);
+            }
+            paneViews.add(v);
+            // The agents pane can be wide and tall: it is placed by the same fit as the PC panes (row 1 if it
+            // fits next to the wordmark, else row 2, else skipped), ahead of them.
+            if ("agents".equals(id)) agentsFit = v;
+            else row1.addView(v);
+        }
+        List<View> pc = new ArrayList<>();
+        if (agentsFit != null) pc.add(agentsFit);
+        if (cfg.pcPanesOn) {
+            for (LauncherConfig.PcPane pp : cfg.pcPanes) {
+                if (cfg.hiddenPcPanes.contains(pp.id)) continue;
+                View v = newPane(row1, pp, pp.title.toLowerCase(java.util.Locale.ROOT));
+                TextView body = v.findViewById(R.id.paneBody);
+                body.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 10f);   // same compact text as AI credits
+                v.setMinimumWidth(0);
+                pc.add(v);
+                paneViews.add(v);
+            }
+        }
+        buildingPanes = true;
+        updatePanes();   // texts first: the fit below measures them
+        buildingPanes = false;
+        fitPcPanes(row1, pc);
+        agentsFit = null;
+        panes.setVisibility(paneViews.isEmpty() ? View.GONE : View.VISIBLE);
+        if (cfg.panes.contains("weather")) Weather.refreshIfStale(this, cfg.weatherLat, cfg.weatherLon, this::updatePanes);
+    }
+
+    private void fitPcPanes(LinearLayout row1, List<View> pc) {
+        if (pc.isEmpty()) return;
+        LauncherConfig cfg = LauncherConfig.get(this);
+        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+        int unspec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED);
+        View left = findViewById(R.id.leftBlock);
+        left.measure(unspec, unspec);
+        int gap = (int) (10 * density);
+        int budget1 = dm.widthPixels - (int) (56 * density) - (int) (64 * density) - left.getMeasuredWidth() - (int) (32 * density);
+        int budget2 = dm.widthPixels - (int) (112 * density);
+        int used1 = 0, h1 = 0;
+        for (int i = 0; i < row1.getChildCount(); i++) {
+            View v = row1.getChildAt(i);
+            v.measure(unspec, unspec);
+            used1 += v.getMeasuredWidth() + gap;
+            h1 = Math.max(h1, v.getMeasuredHeight());
+        }
+        LinearLayout row2 = null;
+        int used2 = 0, h2 = 0;
+        for (View v : pc) {
+            if (v.getVisibility() == View.GONE) {   // hidden agents pane: takes no room (re-fit when it shows)
+                row1.addView(v);
+                continue;
+            }
+            v.measure(unspec, unspec);
+            int w = v.getMeasuredWidth() + gap;
+            if (row2 == null && row1.getChildCount() < MAX_PANES_PER_ROW && used1 + w <= budget1) {
+                row1.addView(v);
+                used1 += w;
+                h1 = Math.max(h1, v.getMeasuredHeight());
+                continue;
+            }
+            if ("row2".equals(cfg.paneOverflow)) {
+                if (row2 == null) {
+                    row2 = paneRow();
+                    ((LinearLayout.LayoutParams) row2.getLayoutParams()).topMargin = gap;
+                }
+                if (row2.getChildCount() < MAX_PANES_PER_ROW && used2 + w <= budget2) {
+                    row2.addView(v);
+                    used2 += w;
+                    h2 = Math.max(h2, v.getMeasuredHeight());
+                    continue;
+                }
+            }
+            paneViews.remove(v);   // skipped: no room
+        }
+        if (row2 == null || row2.getChildCount() == 0) return;
+        // Row 2 must end above the dock band and the "> app" hero line.
+        int dockRow = (int) ((AppAdapter.rowHeightDp(cfg) + 6 + 12) * density);
+        int limit = dm.heightPixels - dockRow - (int) ((30 + 14 + 20) * density);
+        int bottom = (int) (48 * density) + h1 + gap + h2;
+        if (bottom <= limit) {
+            panes.addView(row2);
+            paneRow2 = row2;
+            row2.setAlpha(focusSection == 0 ? 1f : 0f);
+        }
+        else for (int i = 0; i < row2.getChildCount(); i++) paneViews.remove(row2.getChildAt(i));
+    }
+
+    private List<String> defaultPanes() {
+        return java.util.Arrays.asList(getResources().getStringArray(R.array.default_panes));
+    }
+
+    private void updatePanes() {
+        if (panes == null) return;
+        LauncherConfig c = LauncherConfig.get(this);
+        for (View v : paneViews) {
+            TextView body = v.findViewById(R.id.paneBody);
+            Object tag = v.getTag();
+            if (tag instanceof LauncherConfig.PcPane) {
+                LauncherConfig.PcPane pp = (LauncherConfig.PcPane) tag;
+                boolean connected = OmarchyLink.connected();
+                long age = c.widgetsAt > 0 ? System.currentTimeMillis() / 1000 - c.widgetsAt : 0;
+                // Connected: dim after ttl, hide after 2 x ttl (PROTOCOL.md). Not connected: last data marked
+                // "not connected", or hidden (same setting as AI credits).
+                boolean hide = connected ? age > 2L * pp.ttl : "hide".equals(c.aiOffline);
+                v.setVisibility(hide ? View.GONE : View.VISIBLE);
+                body.setAlpha(connected && age > pp.ttl ? 0.55f : 1f);
+                body.setText(pcPaneText(pp, !connected, c.accent));
+                continue;
+            }
+            String id = (String) tag;
+            if ("agents".equals(id)) updateAgentsPane(v, c);
+            else if ("clock".equals(id)) body.setText(clockText());
+            else if ("ai".equals(id)) {
+                // PC off: keep the last numbers, marked stale, or hide the pane (setting); never wait for the PC.
+                boolean hide = "hide".equals(c.aiOffline) && pcOffline(c);
+                v.setVisibility(hide ? View.GONE : View.VISIBLE);
+                body.setText(aiText());
+            }
+            else if ("sysinfo".equals(id)) body.setText(sysinfoText());
+            else body.setText(weatherText());
+        }
+    }
+
+    // ---- agents pane (PROTOCOL.md §6 Agents) ---------------------------------------------------------
+
+    private View agentsFit;
+    private boolean buildingPanes;
+
+    /** Shows/hides the agents pane; a change re-runs the pane fit (rare: data arrives, PC goes away). */
+    private void setAgentsVisible(View v, boolean show) {
+        int want = show ? View.VISIBLE : View.GONE;
+        if (v.getVisibility() == want) return;
+        v.setVisibility(want);
+        if (!buildingPanes) handler.post(() -> {
+            if (resumed && v.getParent() != null) buildPanes();
+        });
+    }
+
+    /** The agents pane, when it is in the pane rows. */
+    private View agentsPane() {
+        for (View v : paneViews) if ("agents".equals(v.getTag())) return v;
+        return null;
+    }
+
+    /** Focusable like a window: the Hyprland active border when focused; OK opens the full agent view. */
+    private void setupAgentsPane(View v) {
+        v.setFocusable(true);
+        android.graphics.drawable.GradientDrawable border = new android.graphics.drawable.GradientDrawable();
+        border.setColor(0);
+        border.setStroke(Math.max(1, Math.round(LauncherConfig.get(this).borderDp * density)), Theme.cur().activeBorder);
+        android.graphics.drawable.StateListDrawable fg = new android.graphics.drawable.StateListDrawable();
+        fg.addState(new int[]{android.R.attr.state_focused}, border);
+        v.setForeground(fg);
+        v.setOnClickListener(x -> {
+            Intent i = new Intent(this, AgentActivity.class);
+            com.omarchytv.home.link.Agents a = com.omarchytv.home.link.Agents.parse(OmarchyLink.agents());
+            if (!a.list.isEmpty()) i.putExtra(AgentActivity.EXTRA_AGENT, a.list.get(0).id);   // PC order: needs input first
+            open(i);
+        });
+    }
+
+    private void updateAgentsPane() {
+        View v = agentsPane();
+        if (v != null) updateAgentsPane(v, LauncherConfig.get(this));
+    }
+
+    /** Ticks the elapsed timers once a second, only while home is resumed and an agent is working. */
+    private final Runnable agentsTick = this::updateAgentsPane;
+
+    /**
+     * One line per agent: status glyph, name, current step, elapsed. Hidden while the PC reports the monitor off
+     * or no agents; with the PC off it says "not connected" (only on TVs that ever got agent data), and nothing
+     * runs: no timer, no request.
+     */
+    private void updateAgentsPane(View v, LauncherConfig c) {
+        handler.removeCallbacks(agentsTick);
+        TextView body = v.findViewById(R.id.paneBody);
+        boolean connected = OmarchyLink.connected();
+        if (!connected) {
+            setAgentsVisible(v, c.agentsAt > 0);
+            android.text.SpannableString off = new android.text.SpannableString(getString(R.string.link_offline));
+            off.setSpan(new android.text.style.ForegroundColorSpan(Theme.m(0xFFFF9E64)), 0, off.length(), 0);
+            body.setText(off);
+            return;
+        }
+        com.omarchytv.home.link.Agents a = com.omarchytv.home.link.Agents.parse(OmarchyLink.agents());
+        boolean show = a.enabled && !a.list.isEmpty();
+        if (!show && v.hasFocus()) findViewById(R.id.btnSettings).requestFocus();
+        setAgentsVisible(v, show);
+        if (!show) return;
+        body.setText(agentsText(a, System.currentTimeMillis()));
+        if (resumed && a.anyLive()) handler.postDelayed(agentsTick, 1000);
+    }
+
+    CharSequence agentsText(com.omarchytv.home.link.Agents a, long now) {
+        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();
+        int nameW = 10;   // fixed columns: the pane keeps its size while agents come and go
+        for (com.omarchytv.home.link.Agents.Agent g : a.list) {
+            if (b.length() > 0) b.append('\n');
+            int line = b.length();
+            b.append(styled(AgentUi.glyph(g.status), AgentUi.color(g.status))).append(' ');
+            String name = String.format(java.util.Locale.ROOT, "%-" + nameW + "s", AgentUi.clip(g.name, 10));
+            b.append(styled(name, LauncherConfig.get(this).accent)).append(' ');
+            String step = g.needsInput ? getString(R.string.agent_needs_input)
+                    : g.step.isEmpty() ? AgentUi.word(this, g.status) : g.step;
+            String el = com.omarchytv.home.link.Agents.span(a.elapsedNow(g, now));
+            b.append(String.format(java.util.Locale.ROOT, "%-24s", AgentUi.clip(step, 24))).append(' ');
+            int d = b.length();
+            b.append(String.format(java.util.Locale.ROOT, "%3s", el));
+            b.setSpan(new android.text.style.ForegroundColorSpan(Theme.cur().fgDim), d, b.length(), 0);
+            if (g.needsInput) {
+                // Needs input: the whole row in the selection colour, text in yellow (Omarchy urgent).
+                b.setSpan(new android.text.style.BackgroundColorSpan(Theme.withAlpha(Theme.cur().yellow, 0.16f)), line, b.length(), 0);
+                b.setSpan(new android.text.style.ForegroundColorSpan(Theme.cur().yellow), line + 2 + name.length() + 1, d, 0);
+            }
+        }
+        return b;
+    }
+
+    /** "label  value" lines, text only (never HTML); label in the accent like the AI credit names. */
+    private CharSequence pcPaneText(LauncherConfig.PcPane pp, boolean offline, int accent) {
+        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();
+        if (offline) {
+            b.append(getString(R.string.link_offline));
+            b.setSpan(new android.text.style.ForegroundColorSpan(Theme.m(0xFFFF9E64)), 0, b.length(), 0);
+        }
+        int w = 0;
+        for (String[] l : pp.lines) w = Math.max(w, Math.min(8, l[0].length()));
+        for (String[] l : pp.lines) {
+            if (b.length() > 0) b.append('\n');
+            String label = l[0].length() > 8 ? l[0].substring(0, 8) : l[0];
+            String value = l[1].length() > 24 ? l[1].substring(0, 23) + "…" : l[1];
+            if (w > 0) {
+                b.append(styled(String.format(java.util.Locale.ROOT, "%-" + w + "s", label), accent)).append(' ');
+            }
+            b.append(value);
+        }
+        return b;
+    }
+
+    /** Ticks on the minute boundary so the big pane clock never lags the bar clock. */
+    private static long untilNextMinute() {
+        return MINUTE_MS - System.currentTimeMillis() % MINUTE_MS + 50;
+    }
+
+    private CharSequence clockText() {
+        java.util.Date now = new java.util.Date();
+        String time = android.text.format.DateFormat.getTimeFormat(this).format(now);
+        String date = android.text.format.DateFormat.format(getString(R.string.date_format), now).toString();
+        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder(time);
+        // Big clock: 4x the pane text (48sp at UI size medium; sp, so it follows UI size and text size).
+        b.setSpan(new android.text.style.RelativeSizeSpan(4f), 0, b.length(), 0);
+        b.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, b.length(), 0);
+        b.setSpan(new android.text.style.ForegroundColorSpan(LauncherConfig.get(this).accent), 0, b.length(), 0);
+        b.append('\n').append(date);
+        return b;
+    }
+
+    /** Older than this, an AI entry is marked stale (the PC plugin pushes every few minutes while running). */
+    private static final long AI_STALE_MS = 60 * 60_000L;
+
+    /**
+     * AI credits pane: entries pushed by the Omarchy Linux plugin into omarchytv.json "ai". Display only:
+     * the TV never sees API keys and never calls any AI provider.
+     */
+    private CharSequence aiText() {
+        LauncherConfig cfg = LauncherConfig.get(this);
+        if (cfg.ai.isEmpty()) {
+            android.text.SpannableString e = new android.text.SpannableString(str(R.string.ai_empty));
+            e.setSpan(new android.text.style.ForegroundColorSpan(Theme.m(0xFF7F88B3)), 0, e.length(), 0);
+            return e;
+        }
+        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();
+        long now = System.currentTimeMillis();
+        boolean offline = pcOffline(cfg);
+        if (offline) {
+            b.append(getString(R.string.ai_pc_offline));   // last data stays below, unchanged
+            b.setSpan(new android.text.style.ForegroundColorSpan(Theme.m(0xFFFF9E64)), 0, b.length(), 0);
+        }
+        int nameW = 4;
+        for (LauncherConfig.AiEntry a : cfg.ai) nameW = Math.max(nameW, Math.min(8, a.name.length()));
+        for (int i = 0; i < cfg.ai.size(); i++) {
+            LauncherConfig.AiEntry a = cfg.ai.get(i);
+            if (b.length() > 0) b.append('\n');
+            String name = a.name.length() > 8 ? a.name.substring(0, 8) : a.name;
+            b.append(styled(String.format(java.util.Locale.ROOT, "%-" + nameW + "s", name), cfg.accent)).append(' ');
+            double f = a.fraction();
+            if (f >= 0) {
+                int filled = (int) Math.round(f * 5);
+                int color = f >= 0.9 ? Theme.m(0xFFF7768E) : f >= 0.7 ? Theme.m(0xFFFF9E64) : Theme.m(0xFF9ECE6A);
+                b.append('[');
+                int s0 = b.length();
+                for (int k = 0; k < 5; k++) b.append(k < filled ? '■' : '□');
+                b.setSpan(new android.text.style.ForegroundColorSpan(color), s0, b.length(), 0);
+                b.append("] ").append(String.format(java.util.Locale.ROOT, "%3d%%", Math.round(f * 100)));
+            } else if (f == -2) {
+                // A number the PC could not read (JSON null): "?", never 0.
+                b.append(a.usedUnknown() ? "?" : amount(a.used, a.unit) + "/?");
+            } else {
+                // No limit known: show the amount instead of a bar.
+                b.append(amount(a.used, a.unit));
+            }
+            int dim = b.length();
+            if (a.resetsAt > now) b.append(" ↻").append(shortSpan(a.resetsAt - now));
+            if (a.updatedAt > 0 && now - a.updatedAt > AI_STALE_MS) {
+                b.setSpan(new android.text.style.ForegroundColorSpan(Theme.m(0xFF7F88B3)), dim, b.length(), 0);
+                int st = b.length();
+                b.append(' ').append(getString(R.string.ai_stale, shortSpan(now - a.updatedAt)));
+                b.setSpan(new android.text.style.ForegroundColorSpan(Theme.m(0xFFFF9E64)), st, b.length(), 0);
+            } else {
+                b.setSpan(new android.text.style.ForegroundColorSpan(Theme.m(0xFF7F88B3)), dim, b.length(), 0);
+            }
+        }
+        return b;
+    }
+
+    /** Credits came from a PC that is not connected now (aiAt known). In-memory check, no I/O, no waiting. */
+    private static boolean pcOffline(LauncherConfig cfg) {
+        return !cfg.ai.isEmpty() && cfg.aiAt > 0 && !OmarchyLink.connected();
+    }
+
+    static String amountText(double v, String unit) {
+        return amount(v, unit);
+    }
+
+    private static String amount(double v, String unit) {
+        if ("$".equals(unit)) return String.format(java.util.Locale.ROOT, "$%.2f", v);
+        if ("tokens".equals(unit)) {
+            if (v >= 1e6) return String.format(java.util.Locale.ROOT, "%.1fM", v / 1e6);
+            if (v >= 1e3) return String.format(java.util.Locale.ROOT, "%.0fk", v / 1e3);
+            return String.valueOf((long) v);
+        }
+        String n = v == Math.rint(v) ? String.valueOf((long) v) : String.format(java.util.Locale.ROOT, "%.1f", v);
+        return unit.isEmpty() ? n : n + " " + unit;
+    }
+
+    /** "45m", "5h", "3d". */
+    private static String shortSpan(long ms) {
+        long m = ms / 60_000L;
+        if (m < 60) return Math.max(1, m) + "m";
+        if (m < 48 * 60) return (m / 60) + "h";
+        return (m / 1440) + "d";
+    }
+
+    /** fastfetch-style key/value list; cheap reads only (no shell, no polling). */
+    private CharSequence sysinfoText() {
+        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();
+        int key = LauncherConfig.get(this).accent;
+        addKv(b, key, str(R.string.sys_os), "Android " + android.os.Build.VERSION.RELEASE);
+        addKv(b, key, str(R.string.sys_host), android.os.Build.MODEL);
+        long up = android.os.SystemClock.elapsedRealtime() / 60_000L;
+        addKv(b, key, str(R.string.sys_uptime), getString(R.string.uptime_fmt, (int) (up / 60), (int) (up % 60)));
+        android.app.ActivityManager am = getSystemService(android.app.ActivityManager.class);
+        if (am != null) {
+            android.app.ActivityManager.MemoryInfo mi = new android.app.ActivityManager.MemoryInfo();
+            am.getMemoryInfo(mi);
+            addKv(b, key, str(R.string.sys_memory), getString(R.string.mib_fmt,
+                    (int) ((mi.totalMem - mi.availMem) >> 20), (int) (mi.totalMem >> 20)));
+        }
+        android.util.DisplayMetrics dm = new android.util.DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getRealMetrics(dm);
+        b.append(styled(str(R.string.sys_display), key)).append("  ").append(dm.widthPixels + "x" + dm.heightPixels);
+        return b;
+    }
+
+    private static CharSequence styled(String s, int color) {
+        android.text.SpannableString sp = new android.text.SpannableString(String.format("%-8s", s));
+        sp.setSpan(new android.text.style.ForegroundColorSpan(color), 0, sp.length(), 0);
+        return sp;
+    }
+
+    private static void addKv(android.text.SpannableStringBuilder b, int color, String k, String v) {
+        b.append(styled(k, color)).append("  ").append(v).append('\n');
+    }
+
+    private CharSequence weatherText() {
+        LauncherConfig cfg = LauncherConfig.get(this);
+        if (Double.isNaN(cfg.weatherLat) || Double.isNaN(cfg.weatherLon)) return str(R.string.weather_unset);
+        org.json.JSONObject w = Weather.cached(this);
+        if (w == null) return str(R.string.weather_loading);
+        org.json.JSONObject cur = w.optJSONObject("current");
+        org.json.JSONObject daily = w.optJSONObject("daily");
+        if (cur == null) return str(R.string.weather_offline);
+        android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();
+        if (!cfg.weatherPlace.isEmpty()) b.append(cfg.weatherPlace).append('\n');
+        int start = b.length();
+        b.append(String.valueOf(Math.round(cur.optDouble("temperature_2m")))).append("°C");
+        b.setSpan(new android.text.style.RelativeSizeSpan(1.8f), start, b.length(), 0);
+        b.setSpan(new android.text.style.ForegroundColorSpan(cfg.accent), start, b.length(), 0);
+        b.append("  ").append(str(Weather.describe(cur.optInt("weather_code"))));
+        if (daily != null && daily.optJSONArray("temperature_2m_max") != null) {
+            b.append('\n').append(getString(R.string.weather_minmax,
+                    (int) Math.round(daily.optJSONArray("temperature_2m_min").optDouble(0)),
+                    (int) Math.round(daily.optJSONArray("temperature_2m_max").optDouble(0))));
+        }
+        b.append('\n').append(getString(R.string.weather_wind, (int) Math.round(cur.optDouble("wind_speed_10m"))));
+        return b;
+    }
+
+    // ---- > tv ----------------------------------------------------------------------------------------
+
+    private DockDecoration dock;
+    private TvAdapter tv;
+    /** 0 dock, 1 apps grid, 2 tv: which section prompt blinks. */
+    private int focusSection;
+
+    private void reloadApps() {
+        adapter.reload();
+        dock.appCount = adapter.getItemCount();
+        applyShortcuts();
+    }
+
+    /** "> omarchy": PC-pushed shortcuts (link.shortcuts), hidden when none or switched off. */
+    private void applyShortcuts() {
+        LauncherConfig cfg = LauncherConfig.get(this);
+        sc.set(cfg.shortcutsOn ? cfg.shortcuts : java.util.Collections.<LauncherConfig.Shortcut>emptyList());
+        sc.setOffset(adapter.getItemCount());
+        tv.setOffset(adapter.getItemCount() + sc.getItemCount());
+    }
+
+    @Override
+    public void onShortcutFocused(int globalPos, View card) {
+        onTileFocused(globalPos, card);
+    }
+
+    @Override
+    public boolean onShortcutVertical(int index, int keyCode) {
+        int apps = adapter.getItemCount(), n = sc.tiles();
+        if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+            if (index >= COLUMNS) focusGlobal(apps + 1 + index - COLUMNS);
+            else if (apps > 0) focusTile(Math.min(((apps - 1) / COLUMNS) * COLUMNS + index, apps - 1));
+            return true;
+        }
+        if (index / COLUMNS < (n - 1) / COLUMNS) {
+            focusGlobal(apps + 1 + Math.min(index + COLUMNS, n - 1));
+            return true;
+        }
+        int t = tv.tile();
+        if (t >= 0) focusGlobal(tv.offset() + t);
+        return true;   // last row: stay put
+    }
+
+    /**
+     * app: launch it; view: ACTION_VIEW on an https / vnd.youtube / nflx URI (the server already filtered it);
+     * pc: send the "shortcut" event, which the PC maps to a command from its own config. Never waits on the PC.
+     */
+    @Override
+    public void onShortcutClick(LauncherConfig.Shortcut s) {
+        switch (s.type) {
+            case "app": {
+                PackageManager pm = getPackageManager();
+                Intent i = pm.getLeanbackLaunchIntentForPackage(s.pkg);
+                if (i == null) i = pm.getLaunchIntentForPackage(s.pkg);
+                if (i == null) Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
+                else open(i);
+                break;
+            }
+            case "view": {
+                String u = s.uri;
+                if (!(u.startsWith("https://") || u.startsWith("vnd.youtube:") || u.startsWith("nflx://"))) return;
+                Intent i = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse(u));
+                if (!s.pkg.isEmpty()) {
+                    i.setPackage(s.pkg);
+                    if (i.resolveActivity(getPackageManager()) == null) i.setPackage(null);
+                }
+                open(i);
+                break;
+            }
+            default:
+                if (!OmarchyLink.connected()) {
+                    Toast.makeText(this, R.string.link_offline, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                OmarchyLink.shortcut(s.command);
+                Toast.makeText(this, R.string.sc_sent, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void applyTv() {
+        tv.setOffset(adapter.getItemCount() + sc.getItemCount());
+        tv.setShown(LauncherConfig.get(this).tvEnabled && liveTvIntent() != null);
+    }
+
+    /**
+     * The TV's own Live TV app as its launcher would start it (Sony: com.sony.dtv.tvx), so it opens on the
+     * last channel watched. Falls back to any Live TV handler (TvContract.Channels content). Null when the
+     * TV has neither (e.g. an emulator or a box without a tuner).
+     */
+    private Intent liveTvIntent() {
+        PackageManager pm = getPackageManager();
+        if (!liveTvPkg.isEmpty()) {
+            Intent i = pm.getLeanbackLaunchIntentForPackage(liveTvPkg);
+            if (i == null) i = pm.getLaunchIntentForPackage(liveTvPkg);
+            if (i != null) return i;
+        }
+        Intent any = new Intent(Intent.ACTION_VIEW, TvContract.Channels.CONTENT_URI);
+        return any.resolveActivity(pm) != null ? any : null;
+    }
+
+    /** Focus any position in the grid (apps or the TV tile). */
+    private void focusGlobal(int pos) {
+        RecyclerView.ViewHolder vh = grid.findViewHolderForAdapterPosition(pos);
+        if (vh != null) {
+            View card = vh.itemView.findViewById(R.id.card);
+            if (card != null) {
+                if (card.isFocused()) onTileFocused(pos, card);
+                else card.requestFocus();
+            }
+            return;
+        }
+        grid.scrollToPosition(pos);
+        grid.post(() -> {
+            RecyclerView.ViewHolder h = grid.findViewHolderForAdapterPosition(pos);
+            View card = h != null ? h.itemView.findViewById(R.id.card) : null;
+            if (card != null) card.requestFocus();
+        });
+    }
+
+    @Override
+    public void onTvFocused(int globalPos, View card) {
+        onTileFocused(globalPos, card);
+    }
+
+    @Override
+    public void onTvClick() {
+        Intent i = liveTvIntent();
+        if (i == null) {
+            Toast.makeText(this, R.string.no_inputs, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        open(i);
+    }
+
+    @Override
+    public void onTvUp() {
+        if (sc.tiles() > 0) {   // first tile of the last "> omarchy" row
+            focusGlobal(adapter.getItemCount() + 1 + ((sc.tiles() - 1) / COLUMNS) * COLUMNS);
+            return;
+        }
+        // Back to the first column of the last app row (the TV tile starts there).
+        int count = adapter.getItemCount();
+        if (count > 0) focusTile(((count - 1) / COLUMNS) * COLUMNS);
+    }
+
+    private AsciiMenu.Page tvPage() {
+        LauncherConfig cfg = LauncherConfig.get(this);
+        AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.set_tv));
+        String lOn = str(R.string.set_tv_show);
+        p.add(lOn, str(cfg.tvEnabled ? R.string.on : R.string.off), r -> {
+            boolean n = !cfg.tvEnabled;
+            applyLive("tv", lOn, j -> {
+                j.remove("channels");   // v2.2 channel list, no longer used
+                org.json.JSONObject t = j.optJSONObject("tv");
+                if (t == null) j.put("tv", t = new org.json.JSONObject());
+                t.put("enabled", n);
+            });
+            return true;
+        });
+        if (liveTvIntent() == null) p.hint(str(R.string.no_inputs));
+        return p;
+    }
+
+    // ---- v2.3: web apps, voice search, > ask --------------------------------------------------------
+
+    private static final int REQ_VOICE_SEARCH = 11;
+
+    private AsciiMenu.Page webAppsPage() {
+        LauncherConfig cfg = LauncherConfig.get(this);
+        AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.web_apps));
+        p.add(str(R.string.web_add), "+", r -> {
+            handler.post(this::addWebAppDialog);
+            return false;
+        });
+        for (LauncherConfig.WebApp w : cfg.webapps) {
+            String host = android.net.Uri.parse(w.url).getHost();
+            p.add(w.name + "  " + (host == null ? "" : host), str(R.string.web_remove_short), r -> {
+                removeWebApp(w.id);
+                return false;
+            });
+        }
+        return p;
+    }
+
+    /** Writes the effective list once (so removing the default X sticks), then edits it. */
+    private void editWebApps(java.util.function.Consumer<org.json.JSONArray> edit) {
+        builtWith = LauncherConfig.update(this, j -> {
+            org.json.JSONArray a = j.optJSONArray("webapps");
+            if (a == null) {
+                a = new org.json.JSONArray();
+                for (LauncherConfig.WebApp w : LauncherConfig.get(this).webapps) {
+                    a.put(new org.json.JSONObject().put("id", w.id).put("name", w.name).put("url", w.url).put("ua", w.ua));
+                }
+            }
+            edit.accept(a);
+            j.put("webapps", a);
+        });
+        reloadApps();
+        applyTv();
+    }
+
+    private void removeWebApp(String id) {
+        editWebApps(a -> {
+            for (int i = a.length() - 1; i >= 0; i--) {
+                org.json.JSONObject o = a.optJSONObject(i);
+                if (o != null && id.equals(LauncherConfig.slug(o.optString("id", o.optString("name"))))) a.remove(i);
+            }
+        });
+    }
+
+    /** Name + URL with the TV keyboard (its mic does dictation). */
+    private void addWebAppDialog() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (16 * density);
+        box.setPadding(pad, pad, pad, 0);
+        android.widget.EditText name = new android.widget.EditText(this);
+        name.setHint(R.string.web_name_hint);
+        name.setSingleLine(true);
+        android.widget.EditText url = new android.widget.EditText(this);
+        url.setHint("https://");
+        url.setText("https://");
+        url.setSingleLine(true);
+        url.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
+        box.addView(name);
+        box.addView(url);
+        new android.app.AlertDialog.Builder(this)
+                .setTitle(R.string.web_add)
+                .setView(box)
+                .setPositiveButton(android.R.string.ok, (d, w) -> {
+                    String n = name.getText().toString().trim(), u = url.getText().toString().trim();
+                    if (!u.startsWith("http://") && !u.startsWith("https://")) u = "https://" + u;
+                    if (n.isEmpty() || u.length() < 12) return;
+                    final String fn = n, fu = u;
+                    editWebApps(a -> {
+                        try {
+                            a.put(new org.json.JSONObject().put("name", fn).put("url", fu).put("ua", "mobile"));
+                        } catch (org.json.JSONException ignored) {
+                        }
+                    });
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private AsciiMenu.Page assistantPage() {
+        LauncherConfig cfg = LauncherConfig.get(this);
+        AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.ask_settings));
+        String lProv = str(R.string.ask_provider), lTts = str(R.string.ask_tts), lKey = str(R.string.voice_key),
+                lAskKey = str(R.string.ask_key);
+        String provName = "—";
+        for (LauncherConfig.Provider pr : cfg.aiProviders) if (pr.id.equals(cfg.assistantProvider)) provName = pr.name;
+        if ("—".equals(provName) && !cfg.aiProviders.isEmpty()) provName = cfg.aiProviders.get(0).name;
+        p.add(lProv, cfg.aiProviders.isEmpty() ? str(R.string.ask_need_link_short) : provName, r -> {
+            if (cfg.aiProviders.isEmpty()) return true;
+            int cur = 0;
+            for (int i = 0; i < cfg.aiProviders.size(); i++) if (cfg.aiProviders.get(i).id.equals(cfg.assistantProvider)) cur = i;
+            String next = cfg.aiProviders.get((cur + 1) % cfg.aiProviders.size()).id;
+            applyLive("assistant", lProv, j -> assistantJson(j).put("provider", next));
+            return true;
+        });
+        p.add(lTts, str(cfg.assistantTts ? R.string.on : R.string.off), r -> {
+            boolean n = !cfg.assistantTts;
+            applyLive("assistant", lTts, j -> assistantJson(j).put("tts", n));
+            return true;
+        });
+        // The mic / Search key stays with Google Assistant unless the user picks "launcher" here.
+        p.add(lKey, str("launcher".equals(cfg.voiceKey) ? R.string.voice_key_launcher : R.string.voice_key_assistant), r -> {
+            String n = "launcher".equals(cfg.voiceKey) ? "assistant" : "launcher";
+            applyLive("assistant", lKey, j -> j.put("voiceKey", n));
+            return true;
+        });
+        String[] keys = {"none", "red", "green", "yellow", "blue"};
+        p.add(lAskKey, cfg.askKey, r -> {
+            String n = keys[0];
+            for (int i = 0; i < keys.length; i++) if (keys[i].equals(cfg.askKey)) n = keys[(i + 1) % keys.length];
+            final String fn = n;
+            applyLive("assistant", lAskKey, j -> assistantJson(j).put("key", fn));
+            return true;
+        });
+        return p;
+    }
+
+    static org.json.JSONObject assistantJson(org.json.JSONObject j) throws org.json.JSONException {
+        org.json.JSONObject a = j.optJSONObject("assistant");
+        if (a == null) {
+            a = new org.json.JSONObject();
+            j.put("assistant", a);
+        }
+        return a;
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        LauncherConfig cfg = LauncherConfig.get(this);
+        // Only when the user chose it: otherwise the key falls through to the system (Google Assistant).
+        if (keyCode == KeyEvent.KEYCODE_SEARCH && "launcher".equals(cfg.voiceKey) && movingPos < 0) {
+            startVoiceSearch();
+            return true;
+        }
+        int ask = "red".equals(cfg.askKey) ? KeyEvent.KEYCODE_PROG_RED : "green".equals(cfg.askKey) ? KeyEvent.KEYCODE_PROG_GREEN
+                : "yellow".equals(cfg.askKey) ? KeyEvent.KEYCODE_PROG_YELLOW : "blue".equals(cfg.askKey) ? KeyEvent.KEYCODE_PROG_BLUE : -1;
+        if (keyCode == ask) {
+            open(new Intent(this, AskActivity.class));
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    /** "> search": the system speech recognizer (Google's on Android TV), Italian or English. */
+    private void startVoiceSearch() {
+        Intent i = new Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, speechLanguage(this))
+                .putExtra(android.speech.RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+                .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, getString(R.string.search_prompt));
+        try {
+            startActivityForResult(i, REQ_VOICE_SEARCH);
+        } catch (ActivityNotFoundException e) {
+            typedSearch();   // no recognizer: type instead (the TV keyboard may still offer its mic)
+        }
+    }
+
+    static String speechLanguage(Context c) {
+        String lang = c.getResources().getConfiguration().getLocales().get(0).getLanguage();
+        return "it".equals(lang) ? "it-IT" : "de".equals(lang) ? "de-DE" : "en-US";
+    }
+
+    private void typedSearch() {
+        android.widget.EditText q = new android.widget.EditText(this);
+        q.setSingleLine(true);
+        new android.app.AlertDialog.Builder(this).setTitle(R.string.search_entry).setView(q)
+                .setPositiveButton(android.R.string.ok, (d, w) -> runSearch(java.util.Collections.singletonList(q.getText().toString())))
+                .setNegativeButton(android.R.string.cancel, null).show();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQ_VOICE_SEARCH || resultCode != RESULT_OK || data == null) return;
+        List<String> alts = data.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS);
+        if (walkerVoice && walker != null && alts != null && !alts.isEmpty()) {
+            walkerVoice = false;
+            walker.setQuery(alts.get(0));
+            return;
+        }
+        walkerVoice = false;
+        if (alts != null && !alts.isEmpty()) runSearch(alts);
+    }
+
+    /** Fuzzy-matches apps, web apps and channels; launches a clear winner, else shows the matches. */
+    private void runSearch(List<String> alts) {
+        List<VoiceMatch.Candidate> cands = new ArrayList<>();
+        for (int i = 0; i < adapter.getItemCount(); i++) {
+            final int pos = i;
+            cands.add(new VoiceMatch.Candidate(adapter.labelAt(i), () -> adapter.launchAt(pos), adapter.labelAt(i)));
+        }
+        if (LauncherConfig.get(this).tvEnabled) {
+            LauncherConfig vc = LauncherConfig.get(this);
+            if (vc.shortcutsOn) for (LauncherConfig.Shortcut x : vc.shortcuts) cands.add(new VoiceMatch.Candidate(x.label, () -> onShortcutClick(x), x.label));
+            cands.add(new VoiceMatch.Candidate(str(R.string.tv_tile), this::onTvClick, "tv", "televisione", "live tv", "fernsehen", "tivù"));
+        }
+        List<VoiceMatch.Candidate> best = VoiceMatch.rank(alts, cands);
+        if (!best.isEmpty() && best.get(0).score >= 0.85 && (best.size() == 1 || best.get(1).score < best.get(0).score - 0.08)) {
+            best.get(0).action.run();
+            return;
+        }
+        if (menu != null && menu.isShowing()) menu.dismiss();
+        menu = new AsciiMenu(this, 420);
+        AsciiMenu.Page p = new AsciiMenu.Page("search: " + alts.get(0));
+        if (best.isEmpty()) p.add(str(R.string.search_none), null, r -> true);
+        for (VoiceMatch.Candidate c : best) {
+            p.add(c.label, String.format(java.util.Locale.ROOT, "%d%%", Math.round(c.score * 100)), r -> {
+                c.action.run();
+                return false;
+            });
+        }
+        p.add(str(R.string.search_again), "[mic]", r -> {
+            handler.post(this::startVoiceSearch);
+            return false;
+        });
+        menu.showBelow(btnMenu, p);
+    }
+}

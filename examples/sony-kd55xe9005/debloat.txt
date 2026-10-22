@@ -1,0 +1,35 @@
+# Sony KD-55XE9005 (BRAVIA_ATV2_EU) - Lista di esempio (personalizzabile)
+# Basata su examples/sony-bravia-4k-gb e note da sony-xbr-x900e (cleanyourtv)
+# Everything is DISABLED (pm disable-user --user 0), not uninstalled.
+# Keep: com.sony.dtv.tvx, tvinput.*, braviasync*, remotepairing, rcpowerkey, uinputservice,
+# imeproxy, sonysystemservice, settingsprovider, com.mediatek.*, mtktvapi.agent, timers.
+# Kept enabled by choice: Chromecast, Miracast, Wi-Fi Direct, DLNA, Play Store. DNS untouched.
+tv.samba.ssm
+com.sony.dtv.sonyselect
+com.sony.dtv.promos
+com.sony.dtv.discovery
+com.sony.dtv.bivlinfo
+com.sony.dtv.tvlaunchercustomizer
+com.google.android.tvrecommendations
+android.autoinstalls.config.sony.bravia
+com.sony.dtv.demomode
+com.sony.dtv.demosupport
+com.sony.dtv.multiscreendemo
+com.sony.dtv.da.service
+com.qterics.da.product
+com.sony.dtv.sonybugreportsys
+com.google.android.tv.bugreportsender
+com.google.android.feedback
+com.sony.dtv.b2b.vendorprotocol
+com.sony.dtv.customersupport
+com.sony.dtv.smarthelp
+com.sony.dtv.imanual
+com.google.android.youtube.tvmusic
+com.google.android.videos
+com.google.android.play.games
+# disattivare solo DOPO aver scelto il salvaschermo OmarchyTV
+com.google.android.backdrop
+com.sony.dtv.smartmediaapp
+com.sony.dtv.osat.music
+# lasciato attivo per sicurezza (Chromecast/Google Home)
+# com.google.android.tv.remote.service
