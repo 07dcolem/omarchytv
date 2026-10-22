@@ -4,6 +4,8 @@ Copyright (c) 2026 Marco Porro (OmarchyTV, MIT)
 
 This product includes third-party software, fonts and artwork:
 - Omarchy logo, icon, theme palettes and wordmark backgrounds - (c) David Heinemeier Hansson, MIT
+- "Liftoff Sunset" wallpaper - Tom Ballard (https://x.com/tcballard), https://github.com/tcballard/omarchy-theme-tokyo-liftoff;
+  original photograph SpaceX (public domain per author); included with the author's permission (X, Oct 22, 2026)
 - Free My TV (LocalAdb port) - (c) 2026 Free My TV contributors, MIT
 - tte.js - Flavio Copes, MIT; TerminalTextEffects - ChrisBuilds, MIT; ttfx - 37signals/omacom, MIT
 - Cascadia Code / CaskaydiaMono - (c) Microsoft Corporation, SIL OFL 1.1 (RFN "Cascadia Code"); Nerd Fonts, MIT

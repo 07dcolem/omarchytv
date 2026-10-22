@@ -33,3 +33,9 @@ modello "TV report". · Tested on the emulator; real-TV reports welcome.
   magic bytes JPEG/PNG/WebP, max 32 immagini, 50 MB totali); compaiono come ★ nel menu Temi.
 - "Schermo PC" live: lettore HTTP LAN dedicato (targetSdk 34 bloccava l'http in chiaro: prima lo stream non poteva partire).
 - APK: `omarchytv-release-2.10.1.apk` SHA-256 `68e861248e65a74aeceee88683fdb24a15bde900ccf91970969dac2d207608b2`, cert `90aa68d9…a33d`.
+
+## 2.10.2 (versionCode 18)
+- Nuovo sfondo predefinito (Tokyo Night): **"Liftoff Sunset"** di Tom Ballard ([@tcballard](https://x.com/tcballard)),
+  da https://github.com/tcballard/omarchy-theme-tokyo-liftoff; foto originale SpaceX (pubblico dominio secondo l'autore).
+  Incluso con il permesso dell'autore (X, 22 ottobre 2026). WebP 3840x2160. Grazie Tom!
+- APK: `omarchytv-release-2.10.2.apk` SHA-256 `8b4458ccb1d39fbd254b72521e62e5ea3b82561ed45e36850037afc15395f381`, cert `90aa68d9…a33d`.

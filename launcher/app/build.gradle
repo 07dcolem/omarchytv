@@ -10,8 +10,8 @@ android {
         applicationId 'com.omarchytv.home'
         minSdk 26
         targetSdk 34
-        versionCode 17
-        versionName '2.10.1-omarchytv'
+        versionCode 18
+        versionName '2.10.2-omarchytv'
     }
 
     buildTypes {

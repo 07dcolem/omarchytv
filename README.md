@@ -5,7 +5,7 @@
 Created by **Marco Porro** · based on [tv-vibehack](https://github.com/Gathin23/tv-vibehack) by **Gathin**
 · [X / @MarcoPorro](https://x.com/MarcoPorro) · [marcoporro.it](https://www.marcoporro.it)
 
-Published: **22 October 2026 (beta)** · Version **2.10.1-beta** · License **MIT**
+Published: **22 October 2026 (beta)** · Version **2.10.2-beta** · License **MIT**
 
 > [!WARNING]
 > **BETA SOFTWARE: THINGS MAY NOT WORK.** OmarchyTV has been tested on one real TV (Sony KD-55XE9005) and the
@@ -62,7 +62,7 @@ cannot be installed on the emulator, so the app row shows emulator apps; real TV
 
 ## Install (summary)
 1. Enable Developer options and network debugging on the TV.
-2. `adb connect <tv-ip>:5555`, then `adb install -r omarchytv-release-2.10.1.apk`.
+2. `adb connect <tv-ip>:5555`, then `adb install -r omarchytv-release-2.10.2.apk`.
 3. Choose OmarchyTV as the home app (the installer script verifies it and rolls back on failure).
 4. Optional: install the PC plugin on your Omarchy PC ([pc-plugin/README.md](pc-plugin/README.md)) and pair from
    *Connect Omarchy Linux*.
@@ -92,6 +92,9 @@ of them.
 - **tv-vibehack / cleanyourtv** by Gathin (MIT): the original project this is built on
   ([original README](docs/UPSTREAM-README-tv-vibehack.md)).
 - **Omarchy** by David Heinemeier Hansson and contributors (MIT): logo, icon, theme palettes, wordmark backgrounds.
+- **"Liftoff Sunset"** (default Tokyo Night wallpaper) by **Tom Ballard** ([@tcballard](https://x.com/tcballard)), from
+  [omarchy-theme-tokyo-liftoff](https://github.com/tcballard/omarchy-theme-tokyo-liftoff); original photograph SpaceX
+  (public domain per author); included with the author's permission granted on X on Oct 22, 2026. Thank you, Tom!
 - **tte.js** by Flavio Copes, **TerminalTextEffects** by ChrisBuilds, **ttfx** by 37signals/omacom (MIT).
 - **Free My TV** contributors (MIT): on-device adb client port.
 - **Cascadia Code / CaskaydiaMono** (Microsoft, SIL OFL 1.1) with Nerd Fonts patches (MIT).

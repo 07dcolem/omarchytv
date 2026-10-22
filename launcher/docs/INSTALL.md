@@ -1,17 +1,17 @@
 # OmarchyTV — installazione / installation
 
-Versione / version: **2.10.1-omarchytv** (versionCode 17) · package `com.omarchytv.home`
+Versione / version: **2.10.2-omarchytv** (versionCode 18) · package `com.omarchytv.home`
 
 ## Verifica del file / verify the download
 
 | | SHA-256 |
 |---|---|
-| `omarchytv-release-2.10.1.apk` | `68e861248e65a74aeceee88683fdb24a15bde900ccf91970969dac2d207608b2` |
+| `omarchytv-release-2.10.2.apk` | `8b4458ccb1d39fbd254b72521e62e5ea3b82561ed45e36850037afc15395f381` |
 | Certificato di firma / signing certificate | `90aa68d9f45e623eadfd349ab1eb66042356f95ff6347a4568c3f3a78f8ea33d` |
 
 ```sh
-sha256sum omarchytv-release-2.10.1.apk                    # Linux   (macOS: shasum -a 256, Windows: certutil -hashfile <file> SHA256)
-apksigner verify --print-certs omarchytv-release-2.10.1.apk  # "Signer #1 certificate SHA-256 digest" must match
+sha256sum omarchytv-release-2.10.2.apk                    # Linux   (macOS: shasum -a 256, Windows: certutil -hashfile <file> SHA256)
+apksigner verify --print-certs omarchytv-release-2.10.2.apk  # "Signer #1 certificate SHA-256 digest" must match
 ```
 Ogni aggiornamento è firmato con lo stesso certificato, quindi si installa sopra la versione precedente.
 Every update is signed with the same certificate, so it installs over the previous version.
@@ -41,7 +41,7 @@ oppure: macOS `brew install android-platform-tools`, Debian/Ubuntu `sudo apt ins
 ### 3. Collegarsi e installare
 ```sh
 adb connect <IP-TV>:5555        # sulla TV accetta "Consentire il debug?"
-adb install -r omarchytv-release-2.10.1.apk
+adb install -r omarchytv-release-2.10.2.apk
 ```
 Windows: stessi comandi in PowerShell dalla cartella platform-tools (`.\adb.exe ...`).
 
@@ -102,9 +102,9 @@ adb devices                     # must list <TV-IP>:5555  device   (not "unautho
 
 ### 4. Verify and install the signed public APK
 ```sh
-sha256sum omarchytv-release-2.10.1.apk                      # must match the table at the top
-apksigner verify --print-certs omarchytv-release-2.10.1.apk  # signer SHA-256 must match the certificate above
-adb install -r omarchytv-release-2.10.1.apk
+sha256sum omarchytv-release-2.10.2.apk                      # must match the table at the top
+apksigner verify --print-certs omarchytv-release-2.10.2.apk  # signer SHA-256 must match the certificate above
+adb install -r omarchytv-release-2.10.2.apk
 adb shell dumpsys package com.omarchytv.home | grep -E 'versionName|versionCode'
 ```
 (`apksigner` is in Android SDK build-tools; if you don't have it, the SHA-256 check is the minimum.)

@@ -10,7 +10,7 @@ Behaviour (dock, app grid, D-pad rules, Inputs dropdown, Wi-Fi, Settings, focus 
 
 | Area | Before (tv-vibehack) | OmarchyTV |
 |---|---|---|
-| Background | pitch black | Omarchy Tokyo Night wallpaper (`liftoff`, 4K source) under a dark scrim, or an original procedural one (`wallpaper` in config) |
+| Background | pitch black | Omarchy Tokyo Night wallpaper (`Liftoff Sunset` by Tom Ballard, 3840x2160) under a dark scrim, or an original procedural one (`wallpaper` in config) |
 | Top | greeting + big clock left, frosted pills right | Waybar-like bar: Omarchy icon, numbered workspaces (= rows; 1 = dock), centred `EEEE HH:mm` clock, Inputs / Wi-Fi / Settings modules |
 | Brand | none | pixel `OMARCHY TV` wordmark (Omarchy logo.txt + matching TV) + `user@omarchytv:~$ <greeting>` prompt with blinking cursor |
 | Tiles | rounded 16dp, glass highlight | square (Hyprland `rounding = 0`), 2dp `#414868` inactive border, focus = 2dp blue→purple gradient border (Hyprland active border) |

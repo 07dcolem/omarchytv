@@ -78,6 +78,7 @@ starship/01-starbase.webp,excluded,,,,"SpaceX photographs (via Erik Johansson, o
 starship/02-flight14-dawn.webp,excluded,,,,"SpaceX photographs (via Erik Johansson, omarchy-starship-to-orbit-theme); ""SpaceX retains all rights"", explicitly NOT MIT"
 starship/03-engine-cluster.webp,excluded,,,,"SpaceX photographs (via Erik Johansson, omarchy-starship-to-orbit-theme); ""SpaceX retains all rights"", explicitly NOT MIT"
 starship/04-morning-pad.webp,excluded,,,,"SpaceX photographs (via Erik Johansson, omarchy-starship-to-orbit-theme); ""SpaceX retains all rights"", explicitly NOT MIT"
+tokyo-night/01-liftoff-sunset.webp,INCLUDED,Tom Ballard,2026-10-22,Liftoff Sunset (default Tokyo Night wallpaper),"'Liftoff Sunset' by Tom Ballard (https://x.com/tcballard), from https://github.com/tcballard/omarchy-theme-tokyo-liftoff; original photograph SpaceX (public domain per author); painterly restyle by Tom Ballard; included with the author's permission granted on X on Oct 22, 2026; PNG 8192x4608 -> WebP 3840x2160"
 tokyo-night/01-liftoff.webp,excluded,,,,added by Tom Ballard (#14755); artwork author/licence not stated
 tokyo-night/02-winding-road.webp,excluded,David Heinemeier Hansson,2026-08-13,New launch backgrounds for Omarchy,artwork author/licence not documented in Omarchy
 tokyo-night/03-quattro.webp,excluded,David Heinemeier Hansson,2026-08-12,Add quattro background by vulturetone,artwork author/licence not documented in Omarchy

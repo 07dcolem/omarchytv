@@ -13,7 +13,7 @@ Copy, replace `<TV-IP>` and the APK path, paste:
 ```text
 Goal: install the OmarchyTV launcher (package com.omarchytv.home) on my Android TV over adb, optionally set it
 as home screen and screensaver, and optionally do a safe, reversible debloat. TV: <TV-IP>:5555, network debugging
-is enabled. APK: ./omarchytv-release-2.10.1.apk
+is enabled. APK: ./omarchytv-release-2.10.2.apk
 
 HARD RULES (never break them, stop and ask if a step seems to need it):
 1. Back up first: save `pm list packages -f`, `pm list packages -d`, the current HOME activity
