@@ -12,9 +12,9 @@ Published: **22 October 2026 (beta)** · Version **2.10.2-beta** · License **MI
 > Android TV emulator. Expect rough edges, missing features on some TVs and bugs. It never roots or uninstalls
 > anything, and you can always switch back to the stock home screen (see [INSTALL](launcher/docs/INSTALL.md)), but use it at your own risk.
 
-![OmarchyTV home preview: Tokyo Night procedural background, terminal + OMARCHY TV logo, meteo, app row](docs/screenshots/home-preview.png)
+![OmarchyTV home: Liftoff Sunset wallpaper, terminal + OMARCHY TV logo, weather, app row](docs/screenshots/home-preview.png)
 
-*Preview mockup — app tiles from a real Sony TV photo; final screenshots coming soon.*
+*Default theme since 2.10.2-beta: Tokyo Night with Tom Ballard's "Liftoff Sunset" wallpaper, used with permission (see [Credits](#credits-and-third-party-software)).*
 
 | Workspace 2 · TV | Workspace 4 · PC | Workspace 5 |
 |---|---|---|
@@ -22,8 +22,9 @@ Published: **22 October 2026 (beta)** · Version **2.10.2-beta** · License **MI
 | **Logo menu** | **Screensaver (tte effects)** | **Workspace 3** |
 | ![Menu](docs/screenshots/menu.png) | ![Screensaver](docs/screenshots/screensaver.png) | ![Workspace 3](docs/screenshots/ws3.png) |
 
-*Screenshots from the Android TV emulator with the public build. Streaming apps (Netflix, Prime Video, YouTube…)
-cannot be installed on the emulator, so the app row shows emulator apps; real TV photos will replace these.*
+*Screenshots from the Android TV emulator (API 28, 1920×1080, English UI) with the public 2.10.2-beta build. The app
+tiles (Netflix, Prime Video, YouTube, CHILI, RaiPlay) are the real app icons captured on a Sony KD-55XE9005 running
+OmarchyTV; see [Trademarks](#trademarks).*
 
 ---
 
@@ -33,6 +34,8 @@ cannot be installed on the emulator, so the app row shows emulator apps; real TV
 - **Omarchy look**: Hyprland-style windows, Waybar-style top bar, Walker-style menus, CaskaydiaMono font.
 - **Workspaces 1–5** like Hyprland: 1 home, 2 TV, 3 apps, 4 PC, 5 system. Number keys or the bar switch them.
 - **TV tile**: one press to Live TV / the TV's inputs.
+- **Default theme/wallpaper**: "Liftoff Sunset" by **Tom Ballard** ([@tcballard](https://x.com/tcballard),
+  [omarchy-theme-tokyo-liftoff](https://github.com/tcballard/omarchy-theme-tokyo-liftoff)), used with permission.
 - **Themes**: all 23 Omarchy themes (palettes from Omarchy), the Omarchy wordmark background for each,
   "next background", your own image, a procedural fallback, and custom themes pushed from your PC.
 - **Panels**: every panel (clock, weather, PC stats, AI credits, deploys, terminal…) has its own toggle, and
@@ -87,6 +90,10 @@ and all other product names, logos and app icons are trademarks of their respect
 identify apps installed on your TV; app icons are loaded from the TV and are not bundled. "Omarchy" and its logo
 are the Omarchy project's branding. OmarchyTV is an unofficial fan project, not affiliated with or endorsed by any
 of them.
+
+## Thanks
+A huge thank you to DHH for creating Omarchy (https://omarchy.org), the inspiration behind this project, and for his
+kind support of OmarchyTV. ❤️ OmarchyTV is an unofficial community project and is not affiliated with Omarchy.
 
 ## Credits and third-party software
 - **tv-vibehack / cleanyourtv** by Gathin (MIT): the original project this is built on
