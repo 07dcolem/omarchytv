@@ -11,6 +11,8 @@ PY=tools/venv/bin/python
 export MSYS_NO_PATHCONV=1
 [ -x "$PY" ] || { echo "run: python3 -m venv tools/venv && tools/venv/bin/pip install -r tools/requirements.txt"; exit 1; }
 {
-  grep -vE '^\s*(#|$)' "$LIST" | sed -E 's/\s+#.*$//' | awk '{print "pm disable-user --user 0 " $1}'
+  # Never disabled, even if listed: com.google.android.tungsten.setupwraith breaks Wi-Fi on Google TV (@TheFifeDawg).
+  grep -vE '^\s*(#|$)' "$LIST" | sed -E 's/\s+#.*$//' | { grep -vxF com.google.android.tungsten.setupwraith || true; } \
+    | awk '{print "pm disable-user --user 0 " $1}'
   echo "pm list packages -d"
 } | "$PY" -I tools/tv.py --batch

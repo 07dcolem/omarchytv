@@ -17,6 +17,6 @@ if (-not (Test-Path $py)) { throw 'run: python -m venv tools\venv; tools\venv\Sc
 if (-not $TvHost) { throw 'pass -TvHost <tv ip> or set $env:TV_HOST' }
 $env:TV_HOST = $TvHost
 
-$pkgs = Get-Content $List | ForEach-Object { ($_ -replace '#.*$', '').Trim() } | Where-Object { $_ }
+$pkgs = Get-Content $List | ForEach-Object { ($_ -replace '#.*$', '').Trim() } | Where-Object { $_ -and $_ -ne 'com.google.android.tungsten.setupwraith' }  # never: breaks Google TV Wi-Fi (@TheFifeDawg)
 $cmds = @($pkgs | ForEach-Object { "pm disable-user --user 0 $_" }) + 'pm list packages -d'
 $cmds | & $py -I (Join-Path $repo 'tools\tv.py') --batch
