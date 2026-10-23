@@ -60,6 +60,7 @@ OmarchyTV; see [Trademarks](#trademarks).*
 - **Live screen sharing ("Schermo PC")**: your Omarchy desktop on the TV as a low-latency H.264 stream
   (gpu-screen-recorder or wf-recorder, hardware encoding when available, optional audio), started from the PC or
   from the TV (the PC asks to confirm). Not Wi-Fi Direct Miracast, which is unreliable on Linux.
+- **Custom app icons** (2.11.0+): your own PNG tile for any app, `omarchy-tv icons push` ([how-to](pc-plugin/omarchy-tv/README.md#custom-app-icons)).
 - **Remote**: Home, Back, media keys and app launching from the PC; Waybar widget and desktop notifications.
 - Omarchy-official look: Walker menu, gum fallback in the terminal, colours of the active theme, notify-send.
 

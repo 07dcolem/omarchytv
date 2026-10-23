@@ -23,6 +23,45 @@ certificate e la connessione P2P scollega spesso la Wi-Fi del PC. Lo streaming H
 dà latenza simile (0.5–1.5 s attesi su hardware reale), funziona con qualsiasi scheda e resta cifrato/autorizzato dal pairing
 per il controllo (lo stream video è HTTP in chiaro sulla LAN, URL casuale monouso, solo l'IP della TV).
 
+## Custom app icons
+
+Since **2.11.0-beta** you can replace the tile image (banner) of any app on the TV home with your own PNG.
+It needs **launcher 2.11.0 or newer** on the TV; with an older launcher `omarchy-tv icons` says
+"This TV launcher has no custom banners yet: update OmarchyTV." Without a custom file, the app's own banner is used.
+
+**1. Find the app's package name.** On a paired PC, `omarchy-link apps` prints every TV app as `label<TAB>package`.
+Without the plugin: `adb shell pm list packages` (e.g. Netflix is `com.netflix.ninja`).
+
+**2. Make the image.** PNG only (checked by its signature), **max 1 MB**. Tiles are 16:9 (198×111 dp at the
+largest size) and the image fills the tile with a centre crop, so use 16:9: 320×180 (the Android TV banner size)
+or 640×360. Larger images are scaled down to about 640 px wide.
+
+**3. Put it on the PC** as `~/.config/omarchy-tv/banners/<package>.png`, e.g.
+`~/.config/omarchy-tv/banners/com.netflix.ninja.png`. Files whose name is not a valid package name are ignored.
+
+**4. Send it to the TV:**
+
+| Command | What it does |
+|---|---|
+| `omarchy-tv icons` | menu: push, list or delete |
+| `omarchy-tv icons list` | lists the custom banners stored **on the TV** |
+| `omarchy-tv icons push PACKAGE` | sends `~/.config/omarchy-tv/banners/PACKAGE.png` (replaces the one on the TV, if any) |
+| `omarchy-tv icons push --all` (or just `push`) | sends every `<package>.png` in that folder |
+| `omarchy-tv icons delete PACKAGE` | removes it from the TV, the app's own banner comes back (without PACKAGE: pick from a list) |
+
+The TV home refreshes by itself after a push or delete. The TV keeps **up to 200** custom banners.
+
+**Without the PC plugin** you can copy the file with adb into the launcher's files folder:
+
+```sh
+adb push com.netflix.ninja.png /sdcard/Android/data/com.omarchytv.home/files/banners/com.netflix.ninja.png
+```
+
+It shows up the next time you return to the home screen; delete the file to go back to the original banner.
+
+Use only images you have the right to use (your own artwork, or images whose licence allows it). Nothing is
+downloaded or bundled: OmarchyTV shows only the files you provide.
+
 ## Language
 
 The menus and messages follow the PC language automatically (`LC_ALL` > `LC_MESSAGES` > `LANG`).
