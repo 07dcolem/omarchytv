@@ -8,8 +8,8 @@ Created by **Marco Porro** · based on [tv-vibehack](https://github.com/Gathin23
 Published: **23 October 2026 (beta)** · Version **2.11.0-beta** · License **MIT**
 
 > [!WARNING]
-> **BETA SOFTWARE: THINGS MAY NOT WORK.** OmarchyTV has been tested on one real TV (Sony KD-55XE9005) and the
-> Android TV emulator. Expect rough edges, missing features on some TVs and bugs. It never roots or uninstalls
+> **BETA SOFTWARE: THINGS MAY NOT WORK.** OmarchyTV has been tested on a few devices (Sony KD-55XE9005 on Android 9,
+> Google TV Streamer, Noblex/Hisense) plus the Android TV emulator. Expect rough edges, missing features on some TVs and bugs. It never roots or uninstalls
 > anything, and you can always switch back to the stock home screen (see [INSTALL](launcher/docs/INSTALL.md)), but use it at your own risk.
 
 ![OmarchyTV home: Liftoff Sunset wallpaper, terminal + OMARCHY TV logo, weather, app row](docs/screenshots/home-preview.svg)
@@ -90,6 +90,8 @@ Signing certificate SHA-256: `90aa68d9f45e623eadfd349ab1eb66042356f95ff6347a4568
 |---|---|---|---|---|---|
 | Sony KD-55XE9005 (2017) | 9 | 138 | 2.10.1-beta | pending real-TV test | 2.9 installed and working |
 | Android TV emulator (API 28, x86) | 9 | 66 | 2.10.1-beta | ok (software rendering) | tte.js needs WebView ≥ 72: fallback used |
+| Google TV Streamer | 14 | ? | 2.11.0-beta | ok (community) | tested by @TheFifeDawg |
+| Noblex TV (Hisense platform) | 11 | ? | 2.11.0-beta | ok (community) | tested by @ilafayajose; missing apps fixed in 2.11.0-beta |
 
 Tested yours? Open an issue with the "TV report" template.
 
