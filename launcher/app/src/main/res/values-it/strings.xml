@@ -246,6 +246,10 @@
     <string name="v29_hints">OK apri · ▲ barra · tasto ricerca: Walker</string>
     <string name="v29_hints_long">OK apri · ▲ barra · OK lungo: Walker</string>
     <string name="v29_net">rete</string>
+    <string name="v29_weather">meteo</string>
+    <string name="v29_system">sistema</string>
+    <string name="v29_theme">tema</string>
+    <string name="v29_up">up</string>
     <string name="v29_wx_locating">localizzo…</string>
     <string name="v29_pc_off">pc non collegato</string>
     <string name="v29_volume">volume</string>
@@ -258,6 +262,7 @@
     <string name="v29_search">cerca</string>
     <string name="v29_wx_auto">Automatica (da IP)</string>
     <string name="v29_wx_search">Cerca città…</string>
+    <string name="wx_unit">Unità di temperatura</string>
     <string name="v29_wx_title">posizione meteo</string>
     <string name="v29_wx_none">nessuna città trovata</string>
     <string name="v29_wx_current">Posizione</string>

@@ -259,6 +259,10 @@
     <string name="v29_hints">OK open · ▲ bar · search key: Walker</string>
     <string name="v29_hints_long">OK open · ▲ bar · hold OK: Walker</string>
     <string name="v29_net">net</string>
+    <string name="v29_weather">weather</string>
+    <string name="v29_system">system</string>
+    <string name="v29_theme">theme</string>
+    <string name="v29_up">up</string>
     <string name="v29_wx_locating">locating…</string>
     <string name="v29_pc_off">pc not connected</string>
     <string name="v29_volume">volume</string>
@@ -271,6 +275,7 @@
     <string name="v29_search">search</string>
     <string name="v29_wx_auto">Automatic (from IP)</string>
     <string name="v29_wx_search">Search city…</string>
+    <string name="wx_unit">Temperature unit</string>
     <string name="v29_wx_title">weather location</string>
     <string name="v29_wx_none">no city found</string>
     <string name="v29_wx_current">Location</string>

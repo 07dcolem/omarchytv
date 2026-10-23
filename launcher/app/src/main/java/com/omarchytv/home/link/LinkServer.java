@@ -487,7 +487,7 @@ public final class LinkServer {
             Response no = receiveUpload(req, in, len, castDir, true);
             if (no != null) return no;
         } else {
-            if (len < 0 || len > (wallpaperPut ? JPEG_MAX : JSON_MAX)) return tooLarge();
+            if (len < 0 || len > (wallpaperPut ? JPEG_MAX : bannerPut(req) ? BANNER_MAX : JSON_MAX)) return tooLarge();
             req.body = readBody(in, (int) len);
         }
         try {
@@ -499,6 +499,57 @@ public final class LinkServer {
 
     static final java.util.regex.Pattern THEME_PATH = java.util.regex.Pattern.compile("^/v1/themes/([a-z0-9][a-z0-9-]{0,39})$");
     static final java.util.regex.Pattern THEME_SELECT = java.util.regex.Pattern.compile("^/v1/themes/([a-z0-9][a-z0-9-]{0,39})/select$");
+
+    /** v-next: custom app banners, PUT/DELETE /v1/banners/<package> (PNG), GET /v1/banners. */
+    static final java.util.regex.Pattern BANNER_PATH = java.util.regex.Pattern.compile("^/v1/banners/([A-Za-z][A-Za-z0-9_]*(?:\\.[A-Za-z0-9_]+)+)$");
+    static final int BANNER_MAX = 1024 * 1024, BANNER_FILES = 200;
+
+    private static boolean bannerPut(Request req) {
+        return "PUT".equals(req.method) && req.target != null && BANNER_PATH.matcher(req.target).matches();
+    }
+
+    /** banners/ next to the link/ wallpaper dir: the app's external files dir, read by AppAdapter. */
+    private File bannerDir() {
+        File w = host.wallpaperDir();
+        return new File(w.getParentFile() != null ? w.getParentFile() : w, "banners");
+    }
+
+    private Response banners(String m, String pkg, Request req) throws Exception {
+        File dir = bannerDir();
+        if (pkg == null) {
+            JSONArray a = new JSONArray();
+            String[] names = dir.list();
+            if (names != null) {
+                java.util.Arrays.sort(names);
+                for (String n : names) if (n.endsWith(".png") && !n.startsWith(".")) a.put(n.substring(0, n.length() - 4));
+            }
+            return new Response(200, new JSONObject().put("banners", a));
+        }
+        File f = new File(dir, pkg + ".png");
+        if ("DELETE".equals(m)) {
+            if (!f.isFile()) return new Response(404, err("not_found", "no such banner"));
+            f.delete();
+            host.onEvent(null, "banners", new JSONObject().put("package", pkg));
+            return new Response(200, ok());
+        }
+        byte[] b = req.body;
+        if (b == null || b.length < 8 || (b[0] & 0xFF) != 0x89 || b[1] != 'P' || b[2] != 'N' || b[3] != 'G') {
+            return new Response(415, err("not_png", "Content-Type image/png, PNG data"));
+        }
+        String[] have = dir.list();
+        if (!f.isFile() && have != null && have.length >= BANNER_FILES) return new Response(413, err("too_many", BANNER_FILES + " banners"));
+        if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("no banner dir");
+        File tmp = new File(dir, ".banner.tmp");
+        try (java.io.FileOutputStream o = new java.io.FileOutputStream(tmp)) {
+            o.write(b);
+        }
+        if (!tmp.renameTo(f)) {
+            tmp.delete();
+            throw new IOException("rename");
+        }
+        host.onEvent(null, "banners", new JSONObject().put("package", pkg));
+        return new Response(200, ok().put("package", pkg).put("bytes", b.length));
+    }
 
     private static boolean themeUpload(Request req) {
         return "PUT".equals(req.method) && THEME_PATH.matcher(req.target).matches();
@@ -612,7 +663,7 @@ public final class LinkServer {
         }
 
         JSONObject body;
-        if (wallpaperPut || req.upload != null || req.body.length == 0) {
+        if (wallpaperPut || bannerPut(req) || req.upload != null || req.body.length == 0) {
             body = new JSONObject();
         } else {
             try {
@@ -835,6 +886,9 @@ public final class LinkServer {
             return s == 200 ? new Response(200, ok()) : new Response(409, err("capability_missing", "the TV cannot send " + key + " right now"));
         }
         if ("PUT".equals(m) && "/v1/theme".equals(p)) return theme(body);
+        if ("GET".equals(m) && "/v1/banners".equals(p)) return banners(m, null, req);
+        java.util.regex.Matcher bm = BANNER_PATH.matcher(p);
+        if (bm.matches() && ("PUT".equals(m) || "DELETE".equals(m))) return banners(m, bm.group(1), req);
         if ("GET".equals(m) && "/v1/themes".equals(p)) return new Response(200, CustomThemes.list(host.wallpaperDir()));
         java.util.regex.Matcher tm = THEME_PATH.matcher(p);
         if (tm.matches() && "PUT".equals(m)) {
@@ -888,7 +942,8 @@ public final class LinkServer {
             JSONArray caps0 = st.optJSONArray("capabilities");
             if (caps0 == null) st.put("capabilities", caps0 = new JSONArray());
             caps0.put("agents");
-            caps0.put("themes");   // v2.10.1: PUT/DELETE /v1/themes/<name>, GET /v1/themes, POST /v1/themes/<name>/select   // §6 Agents: PUT/GET /v1/agents, agent_activity, agent_ask
+            caps0.put("themes");
+            caps0.put("banners");   // v-next: PUT/DELETE /v1/banners/<package> (PNG), GET /v1/banners   // v2.10.1: PUT/DELETE /v1/themes/<name>, GET /v1/themes, POST /v1/themes/<name>/select   // §6 Agents: PUT/GET /v1/agents, agent_activity, agent_ask
             List<String> kinds = host.castKinds();
             if (kinds != null && !kinds.isEmpty()) {
                 JSONArray caps = st.optJSONArray("capabilities");
@@ -1128,8 +1183,12 @@ public final class LinkServer {
                         .put("value", printable(l.optString("value", ""), 64)));
             }
             int ttl = p.optInt("ttl", 180);
-            panes.put(new JSONObject().put("id", p.getString("id")).put("title", printable(p.optString("title", p.getString("id")), 48))
-                    .put("icon", printable(p.optString("icon", ""), 16)).put("ttl", Math.max(10, Math.min(86_400, ttl))).put("lines", outLines));
+            JSONObject pane = new JSONObject().put("id", p.getString("id")).put("title", printable(p.optString("title", p.getString("id")), 48))
+                    .put("icon", printable(p.optString("icon", ""), 16)).put("ttl", Math.max(10, Math.min(86_400, ttl))).put("lines", outLines);
+            // Optional "at" (unix seconds): when these live stats were taken; absent = the push time (widgetsAt).
+            long paneAt = p.optLong("at", 0L);
+            if (paneAt > 0 && paneAt <= now() + 300) pane.put("at", paneAt);
+            panes.put(pane);
         }
         JSONArray shortcuts = new JSONArray();
         for (int i = 0; i < scIn.length(); i++) {
