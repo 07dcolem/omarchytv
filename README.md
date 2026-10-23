@@ -12,15 +12,15 @@ Published: **22 October 2026 (beta)** · Version **2.10.2-beta** · License **MI
 > Android TV emulator. Expect rough edges, missing features on some TVs and bugs. It never roots or uninstalls
 > anything, and you can always switch back to the stock home screen (see [INSTALL](launcher/docs/INSTALL.md)), but use it at your own risk.
 
-![OmarchyTV home: Liftoff Sunset wallpaper, terminal + OMARCHY TV logo, weather, app row](docs/screenshots/home-preview.png)
+![OmarchyTV home: Liftoff Sunset wallpaper, terminal + OMARCHY TV logo, weather, app row](docs/screenshots/home-preview.svg)
 
 *Default theme since 2.10.2-beta: Tokyo Night with Tom Ballard's "Liftoff Sunset" wallpaper, used with permission (see [Credits](#credits-and-third-party-software)).*
 
 | Workspace 2 · TV | Workspace 4 · PC | Workspace 5 |
 |---|---|---|
-| ![TV](docs/screenshots/ws2.png) | ![PC](docs/screenshots/ws4.png) | ![Workspace 5](docs/screenshots/ws5.png) |
+| ![TV](docs/screenshots/ws2.svg) | ![PC](docs/screenshots/ws4.svg) | ![Workspace 5](docs/screenshots/ws5.svg) |
 | **Logo menu** | **Screensaver (tte effects)** | **Workspace 3** |
-| ![Menu](docs/screenshots/menu.png) | ![Screensaver](docs/screenshots/screensaver.png) | ![Workspace 3](docs/screenshots/ws3.png) |
+| ![Menu](docs/screenshots/menu.svg) | ![Screensaver](docs/screenshots/screensaver.png) | ![Workspace 3](docs/screenshots/ws3.svg) |
 
 *Screenshots from the Android TV emulator (API 28, 1920×1080, English UI) with the public 2.10.2-beta build. The app
 tiles (Netflix, Prime Video, YouTube, CHILI, RaiPlay) are the real app icons captured on a Sony KD-55XE9005 running
