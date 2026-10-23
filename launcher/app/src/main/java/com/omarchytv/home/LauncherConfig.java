@@ -76,12 +76,19 @@ final class LauncherConfig {
         final String id, title;
         final int ttl;
         final List<String[]> lines;
+        /** Optional per-pane timestamp (unix seconds, link.panes[].at); 0 = use link.widgetsAt. */
+        final long at;
 
         PcPane(String id, String title, int ttl, List<String[]> lines) {
+            this(id, title, ttl, lines, 0L);
+        }
+
+        PcPane(String id, String title, int ttl, List<String[]> lines, long at) {
             this.id = id;
             this.title = title;
             this.ttl = ttl;
             this.lines = lines;
+            this.at = at;
         }
     }
 
@@ -200,6 +207,8 @@ final class LauncherConfig {
         return 0L;
     }
     final String weatherPlace;
+    /** "tempUnit": "C" (default) or "F"; Open-Meteo answers stay in °C, converted only for display. */
+    final boolean tempF;
     final String wallpaper;          // "omarchy", "procedural", or an absolute image path
     /** v2.10: which of the current theme's official backgrounds (assets/wallpapers/<theme>/), like Omarchy next-background. */
     final int wallpaperBg;
@@ -300,7 +309,7 @@ final class LauncherConfig {
                     JSONObject l = la.optJSONObject(k);
                     if (l != null) ls.add(new String[]{l.optString("label", ""), l.optString("value", "")});
                 }
-                pp.add(new PcPane(o.optString("id"), o.optString("title", o.optString("id")), o.optInt("ttl", 180), ls));
+                pp.add(new PcPane(o.optString("id"), o.optString("title", o.optString("id")), o.optInt("ttl", 180), ls, Math.max(0L, o.optLong("at", 0L))));
             }
         }
         pcPanes = Collections.unmodifiableList(pp);
@@ -392,6 +401,7 @@ final class LauncherConfig {
         weatherLat = wx != null ? wx.optDouble("lat", Double.NaN) : Double.NaN;
         weatherLon = wx != null ? wx.optDouble("lon", Double.NaN) : Double.NaN;
         weatherPlace = wx != null ? wx.optString("place", "") : "";
+        tempF = j != null && "F".equalsIgnoreCase(j.optString("tempUnit", "C").trim());
         wallpaper = j != null ? j.optString("wallpaper", c.getString(R.string.wallpaper)).trim() : c.getString(R.string.wallpaper).trim();
         wallpaperBg = j != null ? Math.max(0, j.optInt("wallpaper_bg", 0)) : 0;
         JSONObject theme = j != null ? j.optJSONObject("theme") : null;

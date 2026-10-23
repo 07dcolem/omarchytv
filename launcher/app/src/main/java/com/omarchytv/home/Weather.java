@@ -193,6 +193,11 @@ final class Weather {
         }
     }
 
+    /** A °C value from Open-Meteo, rounded, in the unit picked in settings. */
+    static long temp(double celsius, boolean fahrenheit) {
+        return Math.round(fahrenheit ? celsius * 9.0 / 5.0 + 32.0 : celsius);
+    }
+
     /** WMO weather code to a string resource. */
     static int describe(int code) {
         if (code == 0) return R.string.wx_clear;

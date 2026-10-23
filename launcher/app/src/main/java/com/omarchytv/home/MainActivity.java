@@ -631,6 +631,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
             handler.post(this::cityDialog);
             return false;
         });
+        p.add(str(R.string.wx_unit), cfg.tempF ? "°F" : "°C", r -> {
+            boolean f = !LauncherConfig.get(this).tempF;
+            LauncherConfig.update(this, j -> j.put("tempUnit", f ? "F" : "C"));
+            home.bind(LauncherConfig.get(this), adapter);
+            updatePanes();
+            r.setValue(f ? "°F" : "°C");
+            return true;
+        });
         menu.showBelow(btnMenu, p);
     }
 
@@ -732,6 +740,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
                 break;
             case "stats":
                 if (resumed && home != null) home.refresh();
+                break;
+            case "banners":   // a custom app banner was pushed or removed (banners/<package>.png)
+                if (resumed && adapter != null) {
+                    adapter.reload();
+                    if (home != null) home.bind(LauncherConfig.get(this), adapter);
+                }
                 break;
             case "ai_sources_ok":
                 if (data.optString("id").equals(pendingSourcesId)) pendingSourcesId = null;
@@ -2505,7 +2519,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
             if (tag instanceof LauncherConfig.PcPane) {
                 LauncherConfig.PcPane pp = (LauncherConfig.PcPane) tag;
                 boolean connected = OmarchyLink.connected();
-                long age = c.widgetsAt > 0 ? System.currentTimeMillis() / 1000 - c.widgetsAt : 0;
+                long since = pp.at > 0 ? pp.at : c.widgetsAt;
+                long age = since > 0 ? System.currentTimeMillis() / 1000 - since : 0;
                 // Connected: dim after ttl, hide after 2 x ttl (PROTOCOL.md). Not connected: last data marked
                 // "not connected", or hidden (same setting as AI credits).
                 boolean hide = connected ? age > 2L * pp.ttl : "hide".equals(c.aiOffline);
@@ -2791,14 +2806,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
         android.text.SpannableStringBuilder b = new android.text.SpannableStringBuilder();
         if (!cfg.weatherPlace.isEmpty()) b.append(cfg.weatherPlace).append('\n');
         int start = b.length();
-        b.append(String.valueOf(Math.round(cur.optDouble("temperature_2m")))).append("°C");
+        b.append(String.valueOf(Weather.temp(cur.optDouble("temperature_2m"), cfg.tempF))).append(cfg.tempF ? "°F" : "°C");
         b.setSpan(new android.text.style.RelativeSizeSpan(1.8f), start, b.length(), 0);
         b.setSpan(new android.text.style.ForegroundColorSpan(cfg.accent), start, b.length(), 0);
         b.append("  ").append(str(Weather.describe(cur.optInt("weather_code"))));
         if (daily != null && daily.optJSONArray("temperature_2m_max") != null) {
             b.append('\n').append(getString(R.string.weather_minmax,
-                    (int) Math.round(daily.optJSONArray("temperature_2m_min").optDouble(0)),
-                    (int) Math.round(daily.optJSONArray("temperature_2m_max").optDouble(0))));
+                    (int) Weather.temp(daily.optJSONArray("temperature_2m_min").optDouble(0), cfg.tempF),
+                    (int) Weather.temp(daily.optJSONArray("temperature_2m_max").optDouble(0), cfg.tempF)));
         }
         b.append('\n').append(getString(R.string.weather_wind, (int) Math.round(cur.optDouble("wind_speed_10m"))));
         return b;

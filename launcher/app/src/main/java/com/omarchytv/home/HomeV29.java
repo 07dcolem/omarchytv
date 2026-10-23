@@ -230,7 +230,7 @@ final class HomeV29 extends FrameLayout {
         LinearLayout.LayoutParams r2l = new LinearLayout.LayoutParams(-1, -2);
         r2l.topMargin = px(16);
         widgets.addView(r2, r2l);
-        wxBox = widget(r1, "meteo", 0);
+        wxBox = widget(r1, act.getString(R.string.v29_weather), 0);
         pcBox = widget(r1, "omarchy · pc", 16);
         BoxView ai = widget(r1, "ai credits · pc", 16);
         r2.addView(new View(a), new LinearLayout.LayoutParams(0, 1, 2f));
@@ -310,7 +310,7 @@ final class HomeV29 extends FrameLayout {
         pcWin = window("pc");
         pcPaneBody = vbox();
         pcWin.addView(pcPaneBody, new LinearLayout.LayoutParams(-1, -2));
-        sysWin = window("sistema");
+        sysWin = window(act.getString(R.string.v29_system));
         sysBody = vbox();
         sysWin.addView(sysBody, new LinearLayout.LayoutParams(-1, -2));
     }
@@ -538,11 +538,11 @@ final class HomeV29 extends FrameLayout {
         clock.setText(d + "  " + h);
         long up = SystemClock.elapsedRealtime() / 60_000L;
         SpannableStringBuilder info = new SpannableStringBuilder();
-        span(info, "tema ", t.accent);
+        span(info, act.getString(R.string.v29_theme) + " ", t.accent);
         span(info, t.name + "\n", t.fg);
         span(info, act.getString(R.string.v29_net) + " ", t.accent);
         span(info, host.wifiName() + "\n", t.fg);
-        span(info, "up ", t.accent);
+        span(info, act.getString(R.string.v29_up) + " ", t.accent);
         span(info, (up / 60 > 0 ? (up / 60) + " h " : "") + (up % 60) + " min", t.fg);
         termInfo.setText(info);
         updateWeather();
@@ -563,13 +563,13 @@ final class HomeV29 extends FrameLayout {
             wxLine2.setText("");
             return;
         }
-        wxTemp.setText(Math.round(cur.optDouble("temperature_2m")) + "°");
+        wxTemp.setText(Weather.temp(cur.optDouble("temperature_2m"), cfg.tempF) + (cfg.tempF ? "°F" : "°"));
         String place = Weather.place(act, cfg);
         String cond = act.getString(Weather.describe(cur.optInt("weather_code"))).toLowerCase(Locale.getDefault());
         wxLine1.setText(place.isEmpty() ? cond : place + " · " + cond);
         JSONObject daily = w.optJSONObject("daily");
         JSONArray mn = daily != null ? daily.optJSONArray("temperature_2m_min") : null, mx = daily != null ? daily.optJSONArray("temperature_2m_max") : null;
-        wxLine2.setText(mn != null && mx != null ? "min " + Math.round(mn.optDouble(0)) + "° · max " + Math.round(mx.optDouble(0)) + "°" : "");
+        wxLine2.setText(mn != null && mx != null ? "min " + Weather.temp(mn.optDouble(0), cfg.tempF) + "° · max " + Weather.temp(mx.optDouble(0), cfg.tempF) + "°" : "");
     }
 
     private TextView offline() {
@@ -1304,6 +1304,15 @@ final class HomeV29 extends FrameLayout {
         return false;
     }
 
+    /** The TV tile is the first item of the home row unless "tv.enabled" is false. */
+    boolean tvShown() {
+        return cfg == null || cfg.tvEnabled;
+    }
+
+    int tvOffset() {
+        return tvShown() ? 1 : 0;
+    }
+
     void focusApp(int pos) {
         focusIn(row, rowAdapter, pos, true);
     }
@@ -1361,7 +1370,7 @@ final class HomeV29 extends FrameLayout {
         if (movingInGrid) {
             gridName.setText(act.getString(R.string.move_hint));
             focusGrid(appPos);
-        } else focusApp(appPos + 1);
+        } else focusApp(appPos + tvOffset());
     }
 
     void endMove() {
@@ -1406,7 +1415,7 @@ final class HomeV29 extends FrameLayout {
             rowAdapter.notifyDataSetChanged();
             gridAdapter.notifyDataSetChanged();
             if (movingInGrid) focusGrid(to);
-            else focusApp(to + 1);
+            else focusApp(to + tvOffset());
         }
         return true;
     }
@@ -1417,7 +1426,7 @@ final class HomeV29 extends FrameLayout {
             appHints.setText(R.string.move_hint);
             return;
         }
-        boolean tvFocused = lastApp == 0;
+        boolean tvFocused = lastApp == 0 && tvShown();
         appHints.setText(tvFocused ? R.string.v210_tv_hints : R.string.v210_app_hints);
         if (tvFocused) appName.setText("TV");
     }
@@ -1436,18 +1445,23 @@ final class HomeV29 extends FrameLayout {
             this.rv = rv;
         }
 
+        /** Home row with the TV tile shown ("tv.enabled": false hides it). */
+        boolean tvOn() {
+            return tvFirst && tvShown();
+        }
+
         int appIndex(int pos) {
-            return tvFirst ? pos - 1 : pos;
+            return tvOn() ? pos - 1 : pos;
         }
 
         @Override
         public int getItemCount() {
-            return (apps != null ? apps.getItemCount() : 0) + (tvFirst ? 1 : 0);
+            return (apps != null ? apps.getItemCount() : 0) + (tvOn() ? 1 : 0);
         }
 
         @Override
         public int getItemViewType(int position) {
-            return tvFirst && position == 0 ? 1 : 0;
+            return tvOn() && position == 0 ? 1 : 0;
         }
 
         @NonNull
@@ -1499,7 +1513,7 @@ final class HomeV29 extends FrameLayout {
                 lp.bottomMargin = gap;
             }
             f.setLayoutParams(lp);
-            boolean tvTile = tvFirst && pos == 0;
+            boolean tvTile = tvOn() && pos == 0;
             final int app = appIndex(pos);
             if (tvTile) {
                 LinearLayout col = (LinearLayout) f.getChildAt(0);
@@ -1532,7 +1546,7 @@ final class HomeV29 extends FrameLayout {
                     if (tvFirst) {
                         lastApp = p;
                         if (movingApp < 0) {
-                            appName.setText(p == 0 ? "TV" : apps.labelAt(p - 1));
+                            appName.setText(tvOn() && p == 0 ? "TV" : apps.labelAt(appIndex(p)));
                             updateRowHeader();
                         }
                     } else if (movingApp < 0) gridName.setText(apps.labelAt(p));
@@ -1541,13 +1555,13 @@ final class HomeV29 extends FrameLayout {
             f.setOnClickListener(v -> {
                 int p = rv.getChildAdapterPosition(v);
                 if (p < 0) return;
-                if (tvFirst && p == 0) host.openTv();
+                if (tvOn() && p == 0) host.openTv();
                 else host.launchApp(appIndex(p));
             });
             f.setOnLongClickListener(v -> {
                 int p = rv.getChildAdapterPosition(v);
                 if (p < 0) return true;
-                if (tvFirst && p == 0) host.openWalker();   // the TV tile cannot be moved or hidden
+                if (tvOn() && p == 0) host.openWalker();   // the TV tile cannot be moved or hidden
                 else host.tileMenu(appIndex(p), v);
                 return true;
             });
