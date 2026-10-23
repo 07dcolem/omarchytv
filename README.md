@@ -91,7 +91,7 @@ Signing certificate SHA-256: `90aa68d9f45e623eadfd349ab1eb66042356f95ff6347a4568
 | Sony KD-55XE9005 (2017) | 9 | 138 | 2.10.1-beta | pending real-TV test | 2.9 installed and working |
 | Android TV emulator (API 28, x86) | 9 | 66 | 2.10.1-beta | ok (software rendering) | tte.js needs WebView ≥ 72: fallback used |
 | Google TV Streamer | 14 | ? | 2.11.0-beta | ok (community) | tested by @TheFifeDawg |
-| Noblex TV (Hisense platform) | 11 | ? | 2.11.0-beta | ok (community) | tested by @ilafayajose; missing apps fixed in 2.11.0-beta |
+| Noblex TV (Hisense platform) | 11 | ? | 2.10.x-beta | partial (community) | tested by @ilafayajose; installed apps missing on 2.10 (fixed in 2.11.0-beta, confirmation pending) |
 
 Tested yours? Open an issue with the "TV report" template.
 
