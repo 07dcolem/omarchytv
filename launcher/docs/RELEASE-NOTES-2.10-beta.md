@@ -39,3 +39,6 @@ modello "TV report". · Tested on the emulator; real-TV reports welcome.
   da https://github.com/tcballard/omarchy-theme-tokyo-liftoff; foto originale SpaceX (pubblico dominio secondo l'autore).
   Incluso con il permesso dell'autore (X, 22 ottobre 2026). WebP 3840x2160. Grazie Tom!
 - APK: `omarchytv-release-2.10.2.apk` SHA-256 `8b4458ccb1d39fbd254b72521e62e5ea3b82561ed45e36850037afc15395f381`, cert `90aa68d9…a33d`.
+
+## 2.11.0 (versionCode 19)
+- See [CHANGELOG.md](../../CHANGELOG.md). APK: `omarchytv-release-2.11.0.apk` SHA-256 `33248d55f359905dd6068bfeca16e76a02da54150a119aae3ecfa0938ddc5111`, cert `90aa68d9…a33d`.

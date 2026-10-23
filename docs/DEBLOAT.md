@@ -74,6 +74,7 @@ by this project on every TV.
 | `com.android.tv.settings`, `com.android.packageinstaller`, input methods (`*inputmethod*`, `*leanback.ime*`) | Settings, installs, keyboard | **never touch** |
 | `com.google.android.katniss` and other Assistant/voice packages | voice search / mic key | **never touch** (the remote's mic stops working) |
 | `com.sony.dtv.tvx` and Sony tuner/input/HDMI-CEC/remote services | Live TV, inputs, CEC, remote | **never touch** |
+| `com.google.android.tungsten.setupwraith` | Google TV setup / Wi-Fi setup | **never touch** (disabling it breaks Wi-Fi on Google TV; thanks Michael Pfeifer, @TheFifeDawg) |
 | `com.omarchytv.home` | OmarchyTV | never disable while it is your home |
 
 ## Warnings
