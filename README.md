@@ -5,7 +5,7 @@
 Created by **Marco Porro** · based on [tv-vibehack](https://github.com/Gathin23/tv-vibehack) by **Gathin**
 · [X / @MarcoPorro](https://x.com/MarcoPorro) · [marcoporro.it](https://www.marcoporro.it)
 
-Published: **22 October 2026 (beta)** · Version **2.10.2-beta** · License **MIT**
+Published: **23 October 2026 (beta)** · Version **2.11.0-beta** · License **MIT**
 
 > [!WARNING]
 > **BETA SOFTWARE: THINGS MAY NOT WORK.** OmarchyTV has been tested on one real TV (Sony KD-55XE9005) and the
@@ -65,7 +65,7 @@ OmarchyTV; see [Trademarks](#trademarks).*
 
 ## Install (summary)
 1. Enable Developer options and network debugging on the TV.
-2. `adb connect <tv-ip>:5555`, then `adb install -r omarchytv-release-2.10.2.apk`.
+2. `adb connect <tv-ip>:5555`, then `adb install -r omarchytv-release-2.11.0.apk`.
 3. Choose OmarchyTV as the home app (the installer script verifies it and rolls back on failure).
 4. Optional: install the PC plugin on your Omarchy PC ([pc-plugin/README.md](pc-plugin/README.md)) and pair from
    *Connect Omarchy Linux*.
