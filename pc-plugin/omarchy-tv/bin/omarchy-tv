@@ -5,6 +5,7 @@
   omarchy-tv status | pair | remote KEY | cast [TARGET]
   omarchy-tv screen start [--audio] | screen stop     live "Schermo PC" (opt-in, H.264 MPEG-TS over the link)
   omarchy-tv themes list | push [NAME|--all] | select NAME [BG] | delete NAME
+  omarchy-tv icons list | push [PACKAGE|--all] | delete PACKAGE   your own banners, ~/.config/omarchy-tv/banners/<package>.png
   omarchy-tv update APK --tv IP:5555 [--yes] [--dry-run]   adb install -r, cert + versionCode checked
   omarchy-tv stats                      show the stats pushed every 5 s while the TV home is visible
 """
@@ -20,7 +21,7 @@ for cand in (os.environ.get("OMARCHY_LINK_LIB"), os.path.expanduser("~/.local/sh
         if os.path.isfile(exe):
             os.environ.setdefault("OMARCHY_LINK_BIN", os.path.realpath(exe))
         break
-from omarchy_tv import ui, themes, update  # noqa: E402
+from omarchy_tv import ui, themes, update, banners  # noqa: E402
 from omarchy_tv.i18n import t  # noqa: E402
 
 MENU = [("󰍹  " + t("menu.status"), "status"), ("󰌘  " + t("menu.pair"), "pair"), ("󰸌  " + t("menu.themes"), "themes"),
@@ -82,6 +83,44 @@ def cmd_themes(args):
     ui.say(__doc__); return 2
 
 
+def cmd_icons(args):
+    sub = args[0] if args else None
+    if sub is None:
+        subs = {t("icons.push"): "push", t("icons.list"): "list", t("icons.delete"): "delete"}
+        sub = subs.get(ui.choose(t("icons.prompt"), list(subs)) or "")
+        if not sub:
+            return 0
+    if sub not in ("list", "push", "delete"):
+        ui.say(__doc__); return 2
+    c = client()
+    try:
+        tv = banners.list_tv(c)
+    except Exception as e:
+        if "404" in str(e) or "not_found" in str(e):
+            ui.say(t("icons.unsupported")); return 1
+        raise
+    if sub == "list":
+        for pkg in tv.get("banners", []):
+            ui.say(t("icons.row", pkg=pkg))
+        return 0
+    if sub == "push":
+        found = banners.local()
+        if len(args) > 1 and args[1] != "--all":
+            found = [f for f in found if f[0] == args[1]]
+        if not found:
+            ui.say(t("icons.none")); return 1
+        for pkg, path in found:
+            banners.push(c, pkg, path)
+            ui.say(t("icons.pushed", pkg=pkg, kb=path.stat().st_size / 1024))
+        ui.notify(t("icons.sent", n=len(found)))
+        return 0
+    pkg = args[1] if len(args) > 1 else ui.choose(t("icons.delete_prompt"), tv.get("banners", []))
+    if pkg:
+        banners.delete(c, pkg)
+        ui.say(t("icons.deleted", pkg=pkg))
+    return 0
+
+
 def cmd_screen(args):
     """Live screen: delegates to omarchy-link cast --screen (gpu-screen-recorder / wf-recorder, hw encode if any)."""
     action = args[0] if args else (ui.choose(t("screen.prompt"), ["start", "start --audio", "stop"]) or "")
@@ -112,6 +151,8 @@ def main(argv):
         return cmd_themes(rest)
     if cmd == "screen":
         return cmd_screen(rest)
+    if cmd == "icons":
+        return cmd_icons(rest)
     if cmd == "stats":
         from omarchy_link import stats, config
         ui.say(str(stats.payload(config.load_config())))

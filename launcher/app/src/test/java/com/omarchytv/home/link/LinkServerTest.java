@@ -190,6 +190,35 @@ public class LinkServerTest {
     }
 
     @Test
+    public void widgetPaneOptionalAt() throws Exception {
+        pair("123456");
+        long now = System.currentTimeMillis() / 1000;
+        String body = "{\"panes\":[{\"id\":\"cpu\",\"title\":\"cpu\",\"at\":" + (now - 30) + ",\"lines\":[{\"label\":\"load\",\"value\":\"1\"}]},"
+                + "{\"id\":\"old\",\"lines\":[]},{\"id\":\"future\",\"at\":" + (now + 86_400) + "}],\"shortcuts\":[]}";
+        assertEquals(200, signed("PUT", "/v1/widgets", body).status);
+        org.json.JSONArray p = host.readConfig().getJSONObject("link").getJSONArray("panes");
+        assertEquals(now - 30, p.getJSONObject(0).getLong("at"));
+        assertFalse(p.getJSONObject(1).has("at"));   // backward compatible: no "at" = widgetsAt
+        assertFalse(p.getJSONObject(2).has("at"));   // a clock far in the future is ignored
+    }
+
+    @Test
+    public void customBanners() throws Exception {
+        pair("123456");
+        byte[] png = {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10, 0, 0};
+        assertEquals(200, signedBytes("PUT", "/v1/banners/com.netflix.ninja", png, "image/png").status);
+        java.io.File f = new java.io.File(host.wallpaperDir().getParentFile(), "banners/com.netflix.ninja.png");
+        assertTrue(f.isFile());
+        assertEquals("com.netflix.ninja", signed("GET", "/v1/banners", "").json().getJSONArray("banners").getString(0));
+        assertEquals(415, signedBytes("PUT", "/v1/banners/com.netflix.ninja", "nope".getBytes(), "image/png").status);
+        assertEquals(404, signed("PUT", "/v1/banners/..evil", "").status);   // not a package name: no route
+        assertEquals(200, signed("DELETE", "/v1/banners/com.netflix.ninja", "").status);
+        assertFalse(f.exists());
+        assertEquals(404, signed("DELETE", "/v1/banners/com.netflix.ninja", "").status);
+        assertTrue(host.events.stream().anyMatch(e -> e.startsWith("banners ")));
+    }
+
+    @Test
     public void notLanIsRefused() throws Exception {
         host.allowLoopback = false;
         Resp r = http("GET", "/v1/info", new byte[0], null);
