@@ -3,6 +3,7 @@
 Menu order: omarchy-menu-select (Omarchy 4.5+, the Quickshell menu) > walker --dmenu (older Omarchy) > gum > plain.
 """
 import os, re, shutil, subprocess
+from .i18n import t
 from pathlib import Path
 
 THEME = Path.home() / ".config/omarchy/current/theme/colors.toml"
@@ -90,7 +91,7 @@ def ask(prompt: str) -> str:
 def confirm(prompt: str) -> bool:
     if shutil.which("gum"):
         return subprocess.run(["gum", "confirm", prompt]).returncode == 0
-    return input(prompt + " [s/N] ").strip().lower() in ("s", "y", "si", "yes")
+    return input(prompt + t("confirm.suffix")).strip().lower() in ("s", "y", "si", "yes")
 
 
 def say(msg: str):
@@ -110,6 +111,6 @@ def run(cmd: list[str], env=None) -> int:
     if cmd[0] == "omarchy-link" and not shutil.which(cmd[0]) and os.environ.get("OMARCHY_LINK_BIN"):
         cmd = [os.environ["OMARCHY_LINK_BIN"]] + cmd[1:]
     if not shutil.which(cmd[0]) and not os.path.isfile(cmd[0]):
-        say(f"{cmd[0]} non trovato: installa il plugin omarchy-link.")
+        say(t("not_found", cmd=cmd[0]))
         return 1
     return subprocess.run(cmd, env=env).returncode

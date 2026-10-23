@@ -23,5 +23,15 @@ certificate e la connessione P2P scollega spesso la Wi-Fi del PC. Lo streaming H
 dà latenza simile (0.5–1.5 s attesi su hardware reale), funziona con qualsiasi scheda e resta cifrato/autorizzato dal pairing
 per il controllo (lo stream video è HTTP in chiaro sulla LAN, URL casuale monouso, solo l'IP della TV).
 
+## Language
+
+The menus and messages follow the PC language automatically (`LC_ALL` > `LC_MESSAGES` > `LANG`).
+Italian and English are supported; any other language falls back to English.
+
+To force one, set `"language": "it"`, `"en"` or `"auto"` (the default) in `~/.config/omarchy-link/config.json`,
+or for a single run: `LC_ALL=it_IT.UTF-8 omarchy-tv`.
+
+`omarchy-link` messages are English-only for now.
+
 ## Test
 `python3 tests/test_update.py && python3 tests/test_themes.py` (senza TV).
