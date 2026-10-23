@@ -70,6 +70,9 @@ final class BoxView extends LinearLayout {
         if (legend == null) {
             c.drawRect(0, y0, w, y0 + b, line);
         } else {
+            // The legend's upper half sits above the box over the wallpaper: give it the box background so the
+            // title reads as cut into the border instead of overlapping it.
+            c.drawRect(tx, 0, tx + gap + tw + gap, y0, fill);
             c.drawRect(0, y0, tx, y0 + b, line);                    // ─ before the gap
             c.drawRect(tx + gap + tw + gap, y0, w, y0 + b, line);   // ─ after the gap
         }

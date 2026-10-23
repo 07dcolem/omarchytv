@@ -116,6 +116,8 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             if (pkg.equals(ctx.getPackageName()) || hidden.contains(pkg) || pkg.equals(liveTv)) continue;
             Drawable banner = ri.activityInfo.loadBanner(pm);
             if (banner == null) banner = ri.activityInfo.applicationInfo.loadBanner(pm);
+            Drawable custom = bannerOverride(pkg);
+            if (custom != null) banner = custom;
             Drawable icon = ri.loadIcon(pm);
             String label = String.valueOf(ri.loadLabel(pm));
             // v2.10: Sony system tiles hide list exists but is OFF by default (no apps hidden); "showSonySystem": false hides them.
@@ -388,6 +390,26 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
             if (items.get(i).component.flattenToShortString().equals(key)) return i;
         }
         return -1;
+    }
+
+    /**
+     * Optional per-app banner: banners/<package>.png in the app's external files dir (pushed by adb or the PC).
+     * Absent (the default) or unreadable → null, and the app's own banner is used.
+     */
+    private Drawable bannerOverride(String pkg) {
+        java.io.File dir = ctx.getExternalFilesDir(null);
+        if (dir == null || pkg.indexOf('/') >= 0 || pkg.startsWith(".")) return null;
+        java.io.File f = new java.io.File(new java.io.File(dir, "banners"), pkg + ".png");
+        if (!f.isFile() || f.length() > 4L * 1024 * 1024) return null;
+        android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+        o.inJustDecodeBounds = true;
+        android.graphics.BitmapFactory.decodeFile(f.getPath(), o);
+        if (o.outWidth <= 0 || o.outHeight <= 0) return null;
+        o.inJustDecodeBounds = false;
+        o.inSampleSize = 1;
+        while (o.outWidth / (o.inSampleSize * 2) >= 640) o.inSampleSize *= 2;   // keep tiles light (≈640 px wide)
+        android.graphics.Bitmap b = android.graphics.BitmapFactory.decodeFile(f.getPath(), o);
+        return b != null ? new android.graphics.drawable.BitmapDrawable(ctx.getResources(), b) : null;
     }
 
     Drawable bannerAt(int position) {
