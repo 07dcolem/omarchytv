@@ -77,6 +77,14 @@ Full guide (English + Italiano), checksums and the signing-certificate fingerpri
 - Setup with an AI assistant (Claude Code, Codex, Gemini CLI, Cursor, ChatGPT, Grok Bot): **[docs/AI-ASSISTED-SETUP.md](docs/AI-ASSISTED-SETUP.md)**
 Signing certificate SHA-256: `90aa68d9f45e623eadfd349ab1eb66042356f95ff6347a4568c3f3a78f8ea33d`.
 
+## Compatible devices
+- **Works**: Android TV and Google TV devices (Android 9+). Tested on Sony KD-55XE9005 (Android 9), Google TV Streamer
+  (Android 14) and Noblex/Hisense (Android 11). Needs network debugging / adb.
+- **Untested**: Fire OS devices (Fire TV Stick 4K Max / 4K Plus, Android-based) and projectors with Android TV
+  (e.g. JMGO global versions).
+- **Not supported**: LG webOS, Samsung Tizen, Fire TV Stick 4K Select (Amazon Vega OS, not Android), Roku, Apple TV.
+- **Tip**: on a non-Android TV, plug in an Android TV / Google TV stick.
+
 ## Tested TVs
 | TV | Android | WebView | OmarchyTV | Status | Notes |
 |---|---|---|---|---|---|
