@@ -1,0 +1,20 @@
+{
+  "id": "com.omarchytv.home",
+  "version": "2.11.0",
+  "vendor": "Marco Porro",
+  "type": "web",
+  "main": "index.html",
+  "title": "OmarchyTV",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "splashBackground": "splash.png",
+  "bgColor": "#1a1b26",
+  "iconColor": "#1a1b26",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "handlesRelaunch": false,
+  "requiredPermissions": [
+    "application.launcher",
+    "time.query"
+  ]
+}
