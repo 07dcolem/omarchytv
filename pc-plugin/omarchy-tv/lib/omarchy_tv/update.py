@@ -1,5 +1,8 @@
-"""APK update over adb: same signing certificate, higher versionCode, `adb install -r` only (never uninstall)."""
-import os, re, shutil, subprocess
+"""APK / IPK update:
+- Android TV (.apk): same signing certificate, higher versionCode, `adb install -r` only (never uninstall).
+- LG webOS (.ipk): validates Debian ar + data.tar.* + appinfo.json (id == com.omarchytv.home), installs via `ares-install`.
+"""
+import io, json, os, re, shutil, subprocess, tarfile
 from .i18n import t
 
 PACKAGE = "com.omarchytv.home"
@@ -48,7 +51,78 @@ def check(apk_cert_sha: str | None, apk_vc: int | None, tv_vc: int | None) -> st
     return None
 
 
+def ipk_info(ipk: str) -> dict | None:
+    """Parse an LG webOS .ipk (ar archive) and return its appinfo.json dict, or None if invalid."""
+    try:
+        with open(ipk, "rb") as f:
+            if f.read(8) != b"!<arch>\n":
+                return None
+            while True:
+                hdr = f.read(60)
+                if len(hdr) < 60:
+                    break
+                name = hdr[:16].decode("ascii", errors="replace").strip().rstrip("/")
+                size = int(hdr[48:58].decode("ascii", errors="replace").strip() or "0")
+                payload = f.read(size)
+                if size % 2 == 1:
+                    f.read(1)
+                if name.startswith("data.tar"):
+                    with tarfile.open(fileobj=io.BytesIO(payload), mode="r:*") as tf:
+                        for member in tf.getmembers():
+                            if member.name.endswith("/appinfo.json") or member.name == "appinfo.json":
+                                ex = tf.extractfile(member)
+                                if ex:
+                                    return json.loads(ex.read().decode("utf-8"))
+    except (OSError, ValueError, tarfile.TarError, json.JSONDecodeError):
+        return None
+    return None
+
+
+def check_ipk(info: dict | None) -> str | None:
+    """None if the LG webOS .ipk is a valid OmarchyTV package, else the reason to refuse."""
+    if not isinstance(info, dict):
+        return t("ipk.invalid")
+    if info.get("id") != PACKAGE:
+        return t("ipk.bad_id", got=info.get("id"), want=PACKAGE)
+    if not info.get("version"):
+        return t("ipk.no_version")
+    return None
+
+
+def update_ipk(ipk: str, device: str | None = None, dry_run: bool = False, yes: bool = False) -> int:
+    from . import ui
+    info = ipk_info(ipk)
+    why = check_ipk(info)
+    if why:
+        ui.say(t("update.cancelled", why=why))
+        ui.notify(t("update.cancelled", why=why), "critical")
+        return 1
+    ver = info.get("version", "?")
+    ui.say(t("ipk.info", id=info.get("id"), ver=ver))
+    if dry_run:
+        ui.say(t("update.no_changes"))
+        return 0
+    tool = shutil.which("ares-install")
+    if not tool:
+        ui.say(t("ipk.no_ares"))
+        return 1
+    target_label = device or "default"
+    if not (yes or ui.confirm(t("ipk.confirm", ipk=ipk, ver=ver, device=target_label))):
+        ui.say(t("update.no_changes"))
+        return 0
+    cmd = [tool] + (["--device", device] if device else []) + [ipk]
+    r = subprocess.run(cmd)
+    if r.returncode == 0:
+        ui.notify(t("ipk.done", ver=ver))
+        launch_tool = shutil.which("ares-launch")
+        if launch_tool:
+            subprocess.run([launch_tool] + (["--device", device] if device else []) + [PACKAGE], capture_output=True)
+    return r.returncode
+
+
 def update(apk: str, serial: str | None = None, dry_run: bool = False, yes: bool = False) -> int:
+    if apk and apk.lower().endswith(".ipk"):
+        return update_ipk(apk, serial, dry_run=dry_run, yes=yes)
     from . import ui
     if serial is None:
         serial = ui.ask("TV (ip:5555)")

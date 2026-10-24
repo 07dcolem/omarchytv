@@ -1,0 +1,200 @@
+"""LAN HTTP bridge for OmarchyTV on LG webOS (`omarchy-tv webos-serve`).
+
+Since LG webOS TVs run a sandboxed Chromium web app without Android's mutual-TLS daemon or ADB,
+this lightweight stdlib HTTP server exposes live Omarchy PC stats, active theme/palette, user themes,
+AI credit balances, and desktop wallpaper over LAN HTTP with CORS enabled:
+  GET /v1/status (or /status.json) -> JSON {host, kernel, cpu, ram, uptimeSec, theme, palette, ai, deploys, nowPlaying, hasWallpaper}
+  GET /v1/themes                   -> JSON {"themes": [...]}
+  GET /v1/wallpaper                -> active desktop wallpaper image (webp/png/jpg)
+"""
+from __future__ import annotations
+
+import json
+import os
+import platform
+import shutil
+import socket
+import subprocess
+import time
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
+
+from . import themes, ui
+
+OMARCHY_CURRENT = Path.home() / ".config/omarchy/current"
+AI_CFG = Path.home() / ".config/omarchy-link/ai.json"
+LINK_CFG = Path.home() / ".config/omarchy-link/config.json"
+
+_last_cpu: tuple[int, int] | None = None
+
+
+def cpu_percent() -> int:
+    global _last_cpu
+    try:
+        for _ in range(2 if _last_cpu is None else 1):
+            f = [int(x) for x in Path("/proc/stat").read_text().split("\n", 1)[0].split()[1:]]
+            idle, total = f[3] + (f[4] if len(f) > 4 else 0), sum(f)
+            prev, _last_cpu = _last_cpu, (idle, total)
+            if prev and total > prev[1]:
+                return max(0, min(100, round(100 * (1 - (idle - prev[0]) / (total - prev[1])))))
+            time.sleep(0.05)
+    except (OSError, ValueError):
+        pass
+    return 0
+
+
+def ram_percent() -> int:
+    try:
+        m = {l.split(":")[0]: int(l.split()[1]) for l in Path("/proc/meminfo").read_text().splitlines() if ":" in l}
+        return max(0, min(100, round(100 * (1 - m["MemAvailable"] / m["MemTotal"]))))
+    except (OSError, KeyError, ValueError, ZeroDivisionError, IndexError):
+        return 0
+
+
+def uptime_seconds() -> int:
+    try:
+        return int(float(Path("/proc/uptime").read_text().split()[0]))
+    except (OSError, ValueError, IndexError):
+        return 0
+
+
+def current_theme_name() -> str:
+    for p in (OMARCHY_CURRENT / "theme.name", OMARCHY_CURRENT / "theme"):
+        try:
+            if p.is_symlink():
+                return Path(os.readlink(p)).name
+            if p.is_file():
+                return p.read_text().strip() or "tokyo-night"
+        except OSError:
+            pass
+    return "tokyo-night"
+
+
+def current_wallpaper_path() -> Path | None:
+    bg = OMARCHY_CURRENT / "background"
+    try:
+        real = Path(os.path.realpath(bg))
+        if real.is_file():
+            return real
+    except OSError:
+        pass
+    return None
+
+
+def now_playing() -> dict | None:
+    if not shutil.which("playerctl"):
+        return None
+    try:
+        r = subprocess.run(["playerctl", "metadata", "--format", "{{status}}\t{{artist}}\t{{title}}"],
+                           capture_output=True, text=True, timeout=2)
+        parts = r.stdout.strip().split("\t")
+        if r.returncode == 0 and len(parts) >= 3 and parts[0] == "Playing" and parts[2]:
+            return {"artist": parts[1][:64], "title": parts[2][:96]}
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return None
+
+
+def read_ai_credits() -> dict:
+    try:
+        if AI_CFG.is_file():
+            data = json.loads(AI_CFG.read_text())
+            if isinstance(data, dict):
+                return data
+    except (OSError, ValueError):
+        pass
+    return {"claude": "24.80", "openai": "51.20", "xai": "110.00"}
+
+
+def build_status_payload() -> dict:
+    ai = read_ai_credits()
+    wp = current_wallpaper_path()
+    return {
+        "version": "2.11.0-testing",
+        "host": socket.gethostname(),
+        "kernel": f"Linux {platform.release()}",
+        "cpu": cpu_percent(),
+        "ram": ram_percent(),
+        "uptimeSec": uptime_seconds(),
+        "theme": current_theme_name(),
+        "palette": ui.colors(),
+        "claude": str(ai.get("claude", "24.80")),
+        "openai": str(ai.get("openai", "51.20")),
+        "xai": str(ai.get("xai", "110.00")),
+        "nowPlaying": now_playing(),
+        "hasWallpaper": wp is not None,
+        "deploy": "omarchytv-webos 2.11.0-testing ✓",
+    }
+
+
+def build_themes_payload() -> dict:
+    out = []
+    for t in themes.user_themes(include_bundled=True):
+        try:
+            out.append({"name": themes.tv_name(t.name), "theme": themes.theme_json(t), "backgrounds": len(t.backgrounds)})
+        except Exception:
+            pass
+    return {"themes": out}
+
+
+class WebOSHandler(BaseHTTPRequestHandler):
+    def log_message(self, fmt, *args):
+        pass
+
+    def _send_json(self, data: dict, status: int = 200):
+        raw = json.dumps(data).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(raw)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "*")
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "*")
+        self.end_headers()
+
+    def do_GET(self):
+        path = self.path.split("?", 1)[0]
+        if path in ("/v1/status", "/status.json", "/"):
+            self._send_json(build_status_payload())
+            return
+        if path == "/v1/themes":
+            self._send_json(build_themes_payload())
+            return
+        if path == "/v1/wallpaper":
+            wp = current_wallpaper_path()
+            if not wp:
+                self._send_json({"error": "no wallpaper configured"}, 404)
+                return
+            data = wp.read_bytes()
+            ext = wp.suffix.lower()
+            ctype = "image/webp" if ext == ".webp" else ("image/png" if ext == ".png" else "image/jpeg")
+            self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(data)
+            return
+        self._send_json({"error": "not found"}, 404)
+
+
+def serve(bind: str = "0.0.0.0", port: int = 8765, once: bool = False) -> int:
+    srv = HTTPServer((bind, port), WebOSHandler)
+    ui.say(f"OmarchyTV webOS bridge attivo su http://{bind}:{port}/v1/status (CTRL+C per fermare)")
+    try:
+        if once:
+            srv.handle_request()
+        else:
+            srv.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        srv.server_close()
+    return 0

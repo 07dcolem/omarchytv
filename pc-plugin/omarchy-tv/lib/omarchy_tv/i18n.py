@@ -61,6 +61,7 @@ def t(key: str, **fmt) -> str:
 EN = {
     "menu.status": "Status", "menu.pair": "Pair TV", "menu.themes": "Themes and wallpapers",
     "menu.screen": "PC screen", "menu.update": "Update APK", "menu.cast": "Cast", "menu.remote": "Remote",
+    "menu.webos": "LG webOS server (LAN)",
     "not_paired": "TV not paired: run omarchy-tv pair",
     "themes.push": "Push a theme", "themes.list": "Themes on the TV", "themes.select": "Select on the TV",
     "themes.delete": "Delete", "themes.prompt": "Themes…",
@@ -89,11 +90,19 @@ EN = {
     "update.confirm": "Install {apk} on TV {serial}?",
     "update.no_changes": "No changes.",
     "update.done": "OmarchyTV updated (versionCode {vc})",
+    "ipk.invalid": "invalid .ipk package or missing appinfo.json",
+    "ipk.bad_id": "package id {got!r} does not match {want!r}: rejected",
+    "ipk.no_version": "missing version in appinfo.json",
+    "ipk.no_ares": "ares-install not found (install @webos-tools/cli: npm install -g @webos-tools/cli).",
+    "ipk.info": "IPK webOS id={id} version={ver} (testing)",
+    "ipk.confirm": "Install {ipk} (v{ver}) on LG webOS TV ({device})?",
+    "ipk.done": "OmarchyTV webOS updated (v{ver})",
 }
 
 IT = {
     "menu.status": "Stato", "menu.pair": "Abbina TV", "menu.themes": "Temi e sfondi",
     "menu.screen": "Schermo PC", "menu.update": "Aggiorna APK", "menu.cast": "Cast", "menu.remote": "Telecomando",
+    "menu.webos": "Server LG webOS (LAN)",
     "not_paired": "TV non abbinata: omarchy-tv pair",
     "themes.push": "Invia un tema", "themes.list": "Temi sulla TV", "themes.select": "Scegli sulla TV",
     "themes.delete": "Elimina", "themes.prompt": "Temi…",
@@ -122,4 +131,11 @@ IT = {
     "update.confirm": "Installare {apk} sulla TV {serial}?",
     "update.no_changes": "Nessuna modifica.",
     "update.done": "OmarchyTV aggiornata (versionCode {vc})",
+    "ipk.invalid": "pacchetto .ipk non valido o appinfo.json mancante",
+    "ipk.bad_id": "id pacchetto {got!r} diverso da {want!r}: rifiutato",
+    "ipk.no_version": "version mancante in appinfo.json",
+    "ipk.no_ares": "ares-install non trovato (installa @webos-tools/cli: npm install -g @webos-tools/cli).",
+    "ipk.info": "IPK webOS id={id} version={ver} (testing)",
+    "ipk.confirm": "Installare {ipk} (v{ver}) sulla TV LG webOS ({device})?",
+    "ipk.done": "OmarchyTV webOS aggiornata (v{ver})",
 }
