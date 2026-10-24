@@ -85,8 +85,8 @@ An experimental **`testing`** edition for **LG webOS TVs** (`omarchytv-webos-2.1
 - **Install Guide:** **[webos/INSTALL-WEBOS.md](webos/INSTALL-WEBOS.md)**
 - **Release Notes & Checksums:** **[webos/RELEASE-2.11.0-testing-webos.md](webos/RELEASE-2.11.0-testing-webos.md)**
 - **Direct Downloads:**
-  - [`omarchytv-webos-2.11.0-testing.ipk`](https://gitlab.com/piermark/omarchytv/-/raw/main/webos/releases/omarchytv-webos-2.11.0-testing.ipk?inline=false) (SHA-256: `04eb928640a0212cad83457ad50b502bc81da440445e33ea2eee95e6eefcc9df`)
-  - [`omarchy-tv-pc-plugin-2.11.0-testing.tar.gz`](https://gitlab.com/piermark/omarchytv/-/raw/main/webos/releases/omarchy-tv-pc-plugin-2.11.0-testing.tar.gz?inline=false) (SHA-256: `44df52534b739b6ca7371283732a3caa57355bf14d86e22d0d9102a142e60a98`)
+  - [`omarchytv-webos-2.11.0-testing.ipk`](https://gitlab.com/piermark/omarchytv/-/releases) (SHA-256: `04eb928640a0212cad83457ad50b502bc81da440445e33ea2eee95e6eefcc9df`)
+  - [`omarchy-tv-pc-plugin-2.11.0-testing.tar.gz`](https://gitlab.com/piermark/omarchytv/-/releases) (SHA-256: `44df52534b739b6ca7371283732a3caa57355bf14d86e22d0d9102a142e60a98`)
 
 ## Compatible devices
 - **Works**: Android TV and Google TV devices (Android 9+). Tested on Sony KD-55XE9005 (Android 9), Google TV Streamer

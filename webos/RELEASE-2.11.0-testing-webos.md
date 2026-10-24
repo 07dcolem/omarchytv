@@ -40,9 +40,9 @@
 
 ### Downloads & Checksums
 
-- **[`omarchytv-webos-2.11.0-testing.ipk`](https://gitlab.com/piermark/omarchytv/-/raw/main/webos/releases/omarchytv-webos-2.11.0-testing.ipk?inline=false)** (LG webOS package, `com.omarchytv.home`, version `2.11.0`)
+- **[`omarchytv-webos-2.11.0-testing.ipk`](https://gitlab.com/piermark/omarchytv/-/releases)** (LG webOS package, `com.omarchytv.home`, version `2.11.0`)
   - SHA-256: `04eb928640a0212cad83457ad50b502bc81da440445e33ea2eee95e6eefcc9df`
-- **[`omarchy-tv-pc-plugin-2.11.0-testing.tar.gz`](https://gitlab.com/piermark/omarchytv/-/raw/main/webos/releases/omarchy-tv-pc-plugin-2.11.0-testing.tar.gz?inline=false)** (Omarchy Linux PC plugin for Android TV + LG webOS)
+- **[`omarchy-tv-pc-plugin-2.11.0-testing.tar.gz`](https://gitlab.com/piermark/omarchytv/-/releases)** (Omarchy Linux PC plugin for Android TV + LG webOS)
   - SHA-256: `44df52534b739b6ca7371283732a3caa57355bf14d86e22d0d9102a142e60a98`
 
 Installation instructions: **[`webos/INSTALL-WEBOS.md`](https://gitlab.com/piermark/omarchytv/-/blob/main/webos/INSTALL-WEBOS.md)**
