@@ -98,7 +98,8 @@ An experimental **`testing`** edition for **LG webOS TVs** (`omarchytv-webos-2.1
 - **Dual-Mirror Release & Theme Resolution:** Queries **GitLab** (`https://gitlab.com/api/v4/projects/87958120/releases`) as primary mirror and **GitHub** (`https://api.github.com/repos/piermark/omarchytv/releases`) as fallback mirror for both `.apk` and `.ipk` releases.
 - **Documentation & Build Guide:** **[mobile-companion/README-MOBILE.md](mobile-companion/README-MOBILE.md)**
 - **Release Notes & Checksums:** **[mobile-companion/RELEASE-2.11.0-beta-mobile.md](mobile-companion/RELEASE-2.11.0-beta-mobile.md)**
-- **Direct Download:** [`omarchytv-mobile-2.11.0-beta.apk`](https://gitlab.com/piermark/omarchytv/-/releases/v2.11.0-beta-mobile) (SHA-256: `cb51e5014d8c80311323361dc231ecbbf774238462f1b900adb6ca9e3c89ef21`, Signing Cert SHA-256: `90aa68d9f45e623eadfd349ab1eb66042356f95ff6347a4568c3f3a78f8ea33d`)
+- **Release Page:** **[v2.11.0-beta-mobile](https://gitlab.com/piermark/omarchytv/-/releases/v2.11.0-beta-mobile)**
+- **Direct APK Download:** [`omarchytv-mobile-2.11.0-beta.apk`](https://gitlab.com/-/project/87958120/uploads/2e42e43b2bf7aacc24697002c1f39d86/omarchytv-mobile-2.11.0-beta.apk) (`178 KB`, SHA-256: `cb51e5014d8c80311323361dc231ecbbf774238462f1b900adb6ca9e3c89ef21`, Signing Cert SHA-256: `90aa68d9f45e623eadfd349ab1eb66042356f95ff6347a4568c3f3a78f8ea33d`)
 
 ## Compatible devices
 - **Works**: Android TV and Google TV devices (Android 9+). Tested on Sony KD-55XE9005 (Android 9), Google TV Streamer

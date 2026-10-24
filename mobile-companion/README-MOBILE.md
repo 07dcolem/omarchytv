@@ -2,6 +2,9 @@
 
 **OmarchyTV Mobile** (`omarchytv-mobile-2.11.0-beta.apk`) is the official 100% original MIT-licensed Android smartphone companion and wireless installer for **OmarchyTV**, supporting **Android TV / Google TV, LG webOS, Samsung Tizen, Hisense VIDAA, and all Smart TVs**.
 
+- **GitLab Release Page:** **[v2.11.0-beta-mobile](https://gitlab.com/piermark/omarchytv/-/releases/v2.11.0-beta-mobile)**
+- **Direct APK Download (`178 KB`):** **[`omarchytv-mobile-2.11.0-beta.apk`](https://gitlab.com/-/project/87958120/uploads/2e42e43b2bf7aacc24697002c1f39d86/omarchytv-mobile-2.11.0-beta.apk)** (SHA-256: `cb51e5014d8c80311323361dc231ecbbf774238462f1b900adb6ca9e3c89ef21`)
+
 ## Universal Smart TV Architecture
 
 1. **Android TV / Google TV (`ADB :5555` + `omarchy-link :8999` / `:47800`):**
