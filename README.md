@@ -88,6 +88,18 @@ An experimental **`testing`** edition for **LG webOS TVs** (`omarchytv-webos-2.1
   - [`omarchytv-webos-2.11.0-testing.ipk`](https://gitlab.com/piermark/omarchytv/-/releases) (SHA-256: `04eb928640a0212cad83457ad50b502bc81da440445e33ea2eee95e6eefcc9df`)
   - [`omarchy-tv-pc-plugin-2.11.0-testing.tar.gz`](https://gitlab.com/piermark/omarchytv/-/releases) (SHA-256: `44df52534b739b6ca7371283732a3caa57355bf14d86e22d0d9102a142e60a98`)
 
+## OmarchyTV Mobile (`2.11.0-beta` — Android Phone Installer & Companion)
+
+**OmarchyTV Mobile** (`com.omarchytv.mobile`, `omarchytv-mobile-2.11.0-beta.apk`) is the no-PC Android smartphone companion and wireless installer for **Android TV / Google TV, LG webOS, Samsung Tizen & Hisense VIDAA**:
+
+- **Android TV / Google TV Mode (`ADB :5555` + `omarchy-link :8999` / `:47800`):** Parallel `/24` LAN subnet scanner, pure-Java Wireless ADB 2048-bit RSA handshake & `sync:` APK installer (`pm install -r`), 1-tap default Home launcher pinning, HMAC-SHA256 `omarchy-link` client (live theme switching across all **23 official Omarchy themes**, tactile D-Pad & media remote, custom phone wallpaper & banner upload), and safe reversible brand debloat (`pm disable-user --user 0` / `pm enable` for **Sony Bravia**, **Google TV Streamer**, **Sharp AQUOS**, **TCL**, **Hisense**, and **Xiaomi**) guarded by an immutable `PROTECTED_PACKAGES` denylist.
+- **LG webOS Mode (`WebOsBridgeServer :8765` + `.ipk` Inspector & Server):** Runs an embedded `:8765` HTTP bridge server on the phone (`/v1/status`, `/v1/themes`, `/v1/wallpaper`) so LG webOS TVs can sync themes, wallpapers, and remote keys directly from an Android phone without a Linux PC, plus `.ipk` Debian `ar` verification and LAN serving (`/omarchytv.ipk`).
+- **Samsung Tizen, Hisense VIDAA & Universal Smart TV Mode (`http://<phone-ip>:8765/tv`):** Serves the full 1080p HTML5/Canvas OmarchyTV Web Launcher directly from the phone to any Smart TV web browser with real-time theme & D-Pad remote sync, plus 1-tap Samsung Tizen SmartView (`:8001/api/v2/`) auto-launch.
+- **Dual-Mirror Release & Theme Resolution:** Queries **GitLab** (`https://gitlab.com/api/v4/projects/87958120/releases`) as primary mirror and **GitHub** (`https://api.github.com/repos/piermark/omarchytv/releases`) as fallback mirror for both `.apk` and `.ipk` releases.
+- **Documentation & Build Guide:** **[mobile-companion/README-MOBILE.md](mobile-companion/README-MOBILE.md)**
+- **Release Notes & Checksums:** **[mobile-companion/RELEASE-2.11.0-beta-mobile.md](mobile-companion/RELEASE-2.11.0-beta-mobile.md)**
+- **Direct Download:** [`omarchytv-mobile-2.11.0-beta.apk`](https://gitlab.com/piermark/omarchytv/-/releases/v2.11.0-beta-mobile) (SHA-256: `cb51e5014d8c80311323361dc231ecbbf774238462f1b900adb6ca9e3c89ef21`, Signing Cert SHA-256: `90aa68d9f45e623eadfd349ab1eb66042356f95ff6347a4568c3f3a78f8ea33d`)
+
 ## Compatible devices
 - **Works**: Android TV and Google TV devices (Android 9+). Tested on Sony KD-55XE9005 (Android 9), Google TV Streamer
   (Android 14) and Noblex/Hisense (Android 11). Needs network debugging / adb.
