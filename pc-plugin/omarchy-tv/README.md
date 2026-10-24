@@ -8,8 +8,10 @@ Solo libreria standard Python; Pillow facoltativo (sfondi → WebP), altrimenti 
 | `omarchy-tv` / `menu` | menu Walker (dmenu, stile `omarchy-menu`), poi `gum choose`, poi lista numerata; colori del tema attivo; notifiche `notify-send` (mako) |
 | `pair`, `status`, `cast`, `remote KEY` | delega a `omarchy-link` |
 | `themes list / push NAME / push --all / select NAME [BG] / delete NAME` | temi utente `~/.config/omarchy/themes/*` → TV (`PUT /v1/themes/<name>`, ZIP: theme.json + backgrounds ≤3840×2160), max **50 MB** in totale sulla TV |
+| `icons list / push [PACKAGE\|--all] / delete PACKAGE` | banner PNG personalizzati da `~/.config/omarchy-tv/banners/<package>.png` |
 | `screen start [--audio] / stop` | "Schermo PC" live (opt-in): gpu-screen-recorder (hw) o wf-recorder (VAAPI se c'è, altrimenti x264 ultrafast/zerolatency) → H.264 MPEG-TS, URL monouso solo per l'IP della TV abbinata; la TV lo riproduce con ExoPlayer (buffer ~0.5 s). Avvio/stop anche dalla TV (icona monitor), il PC chiede conferma |
-| `update APK --tv IP:5555 [--yes] [--dry-run]` | solo adb (`install -r`, mai `-d`/uninstall); rifiuta cert ≠ `90aa68d9…a33d` o versionCode non maggiore |
+| `update <APK\|IPK> [--tv IP:5555\|DEVICE] [--yes] [--dry-run]` | **Android (`.apk`)**: solo adb (`install -r`, mai `-d`/uninstall), rifiuta cert ≠ `90aa68d9…a33d` o versionCode non maggiore. **LG webOS (`.ipk`)**: verifica `appinfo.json` (`id == com.omarchytv.home`) e installa con `ares-install` |
+| `webos-serve [--port 8765] [--bind 0.0.0.0]` | server HTTP LAN leggero per TV LG webOS (`/v1/status`, `/v1/themes`, `/v1/wallpaper`) con CORS abilitato |
 | `stats` | mostra il payload; la sessione omarchy-link lo invia **ogni 5 s solo con la home TV visibile** (`statsIntervalS`) |
 
 Config omarchy-link (`~/.config/omarchy-link/config.json`): `screenAudio` (false), `screenFps` (30), `screenHwEncode` (true),
@@ -62,6 +64,12 @@ It shows up the next time you return to the home screen; delete the file to go b
 Use only images you have the right to use (your own artwork, or images whose licence allows it). Nothing is
 downloaded or bundled: OmarchyTV shows only the files you provide.
 
+## LG webOS support (`2.11.0-testing`)
+
+For LG webOS TVs running `omarchytv-webos-2.11.0-testing.ipk`:
+- **Install / update `.ipk` on the TV**: `omarchy-tv update omarchytv-webos-2.11.0-testing.ipk --tv lgtv` (validates the Debian `ar` archive and `appinfo.json` `id == com.omarchytv.home`, then installs via `ares-install` and launches via `ares-launch`).
+- **Live PC status & theme bridge**: `omarchy-tv webos-serve --port 8765` runs a lightweight LAN HTTP server exposing `/v1/status`, `/v1/themes`, and `/v1/wallpaper` with CORS headers so your LG webOS TV can display live PC CPU/RAM, theme, and AI credit stats in real time.
+
 ## Language
 
 The menus and messages follow the PC language automatically (`LC_ALL` > `LC_MESSAGES` > `LANG`).
@@ -73,4 +81,4 @@ or for a single run: `LC_ALL=it_IT.UTF-8 omarchy-tv`.
 `omarchy-link` messages are English-only for now.
 
 ## Test
-`python3 tests/test_update.py && python3 tests/test_themes.py` (senza TV).
+`python3 -m unittest discover -s tests -v` (senza TV).

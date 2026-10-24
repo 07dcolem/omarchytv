@@ -1,16 +1,17 @@
-# OmarchyTV PC plugin (Omarchy Linux)
+# OmarchyTV PC plugin (Omarchy Linux — Android TV & LG webOS)
 
 Two parts, both MIT, © 2026 Marco Porro (see [LICENSE](LICENSE), [NOTICE](NOTICE)):
 
-- **`omarchy-link/`**: the link daemon and CLI: SPAKE2 pairing, signed requests, auto-reconnect, theme sync,
+- **`omarchy-link/`**: the link daemon and CLI for Android TV: SPAKE2 pairing, signed requests, auto-reconnect, theme sync,
   stats (every 5 s while the TV home is visible), cast, live screen sharing, remote, Waybar widget, notifications.
   Protocol: [omarchy-link/docs/PROTOCOL.md](omarchy-link/docs/PROTOCOL.md).
 - **`omarchy-tv/`**: the Omarchy-style front-end (`omarchy-tv`): Omarchy menu via `omarchy-menu-select` (Omarchy 4.5+),
-  `walker --dmenu` on older Omarchy, gum / numbered list over SSH, theme push
-  (50 MB cap), adb APK update with certificate/version checks, screen start/stop. Uses `omarchy-link/lib` from this folder.
+  `walker --dmenu` on older Omarchy, gum / numbered list over SSH, theme push (50 MB cap), custom app banner push,
+  Android TV `.apk` update (`adb install -r` with certificate/version checks), LG webOS `.ipk` update (`ares-install` with `appinfo.json` verification),
+  and the `omarchy-tv webos-serve` LAN HTTP server for LG webOS TVs. Uses `omarchy-link/lib` from this folder.
 
 Python 3.10+ standard library only. Optional: Pillow (backgrounds → WebP), ffmpeg, gpu-screen-recorder or wf-recorder
-(screen sharing), android-tools (`adb`, `apksigner`/`aapt` for updates), gum, Walker (Omarchy < 4.5), notify-send.
+(screen sharing), android-tools (`adb`, `apksigner`/`aapt` for Android `.apk` updates), `@webos-tools/cli` (`ares-install`/`ares-launch` for LG webOS `.ipk` updates), gum, Walker (Omarchy < 4.5), notify-send.
 
 ## Install on an Omarchy PC
 ```bash
@@ -21,9 +22,13 @@ cp -r omarchy-tv   ~/.local/share/omarchy-tv
 ln -sf ~/.local/share/omarchy-link/bin/omarchy-link ~/.local/bin/omarchy-link
 ln -sf ~/.local/share/omarchy-tv/bin/omarchy-tv     ~/.local/bin/omarchy-tv
 
-# On the TV: logo menu → Connect Omarchy Linux (shows a 6-digit code)
+# For Android TV: logo menu → Connect Omarchy Linux (shows a 6-digit code)
 omarchy-link pair --code 123456        # or: omarchy-link pair <tv-ip> --code 123456
 omarchy-tv                             # menu
+
+# For LG webOS TV (experimental testing build):
+omarchy-tv webos-serve --port 8765     # serves /v1/status, /v1/themes, /v1/wallpaper over LAN HTTP
+omarchy-tv update omarchytv-webos-2.11.0-testing.ipk --tv lgtv
 ```
 Optional:
 - **Waybar module + session**: see [omarchy-link/README.md](omarchy-link/README.md) (`omarchy-link status --waybar`, `omarchy-link session`).
@@ -39,5 +44,5 @@ Everything is LAN-only and opt-in. Screen sharing is off until you start it. `sc
 ## Tests (no TV needed)
 ```bash
 (cd omarchy-link/tests && ./run.sh)                    # needs ffmpeg for the mirror test
-python3 omarchy-tv/tests/test_update.py && python3 omarchy-tv/tests/test_themes.py && python3 omarchy-tv/tests/test_ui.py
+python3 -m unittest discover -s omarchy-tv/tests -v
 ```
