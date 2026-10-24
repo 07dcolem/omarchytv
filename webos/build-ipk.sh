@@ -5,8 +5,9 @@
 # running ares-package.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP="$ROOT/webos/app"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+APP="$SCRIPT_DIR/app"
 ANDROID_MAIN="$ROOT/launcher/app/src/main"
 
 mkdir -p "$APP/fonts" "$APP/wallpapers" "$APP/licenses" "$APP/saver"
@@ -34,7 +35,7 @@ if [ -d "$ANDROID_MAIN" ]; then
   cp -rf "$ANDROID_MAIN/assets/saver/tte-js" "$APP/saver/"
 fi
 
-OUT_DIR="${1:-$ROOT/webos}"
+OUT_DIR="${1:-$SCRIPT_DIR}"
 mkdir -p "$OUT_DIR"
 ares-package "$APP" -o "$OUT_DIR"
 mv -f "$OUT_DIR/com.omarchytv.home_2.11.0_all.ipk" "$OUT_DIR/omarchytv-webos-2.11.0-testing.ipk"
