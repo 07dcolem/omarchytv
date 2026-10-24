@@ -1,0 +1,105 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+@font-face{font-family:mono;src:url("../fonts/caskaydia_mono_regular.ttf")}
+html,body{margin:0;height:100%;background:#000;overflow:hidden;cursor:none;user-select:none}
+body{display:flex;flex-direction:column;align-items:center;justify-content:center}
+pre{margin:0;font-family:mono,monospace;line-height:1.15;color:#7aa2f7;white-space:pre}
+#ssclock{margin-top:28px;font-family:mono,monospace;font-size:28px;color:#a9b1d6;letter-spacing:1px;display:none}
+</style></head><body><pre id="art"></pre><div id="ssclock"></div>
+<script>
+// omarchy-screensaver on LG webOS: loop `ttfx --random-effect` over screensaver-tv.txt, black, centred, ~65% width.
+// Same 37 effects as OmarchyTV 2.11.0 Android (official tte.js ES modules -> fallback tte-bundle.js).
+var S=window.OmarchySaver||(window.parent&&window.parent.OmarchySaver)||null;
+function log(m){try{S&&S.log?S.log(String(m)):console.log(m)}catch(x){}}
+window.onerror=function(msg,src,line,col,err){log('JS error: '+msg+' @'+src+':'+line+':'+col);return false};
+if(!Array.prototype.flat)Object.defineProperty(Array.prototype,'flat',{configurable:true,writable:true,value:function(d){d=d===undefined?1:d;return d<1?this.slice():this.reduce(function(a,v){return a.concat(Array.isArray(v)?v.flat(d-1):v)},[])}});
+if(!Array.prototype.flatMap)Object.defineProperty(Array.prototype,'flatMap',{configurable:true,writable:true,value:function(f,t){return this.map(f,t).flat(1)}});
+if(!Object.fromEntries)Object.fromEntries=function(it){var o={};Array.from(it).forEach(function(p){o[p[0]]=p[1]});return o};
+if(!window.queueMicrotask)window.queueMicrotask=function(f){Promise.resolve().then(f)};
+if(!window.ResizeObserver)window.ResizeObserver=function(){this.observe=function(){};this.disconnect=function(){}};
+
+function dismiss(e){
+  if(S&&S.dismiss){S.dismiss();if(e){e.preventDefault();e.stopPropagation();}}
+}
+window.addEventListener('keydown',dismiss,true);
+window.addEventListener('mousedown',dismiss,true);
+
+(function(){
+  var text=(S&&S.text&&S.text())||"";
+  var pre=document.getElementById('art');
+  var clk=document.getElementById('ssclock');
+  var base=(S&&S.color&&S.color())||'#7aa2f7';
+  pre.style.color=base;
+  if(S&&S.clockColor)clk.style.color=S.clockColor();
+  function tickClock(){
+    if(S&&S.showClock&&S.showClock()){
+      clk.style.display='block';
+      var d=new Date();
+      clk.textContent=d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    }else{
+      clk.style.display='none';
+    }
+  }
+  tickClock();
+  setInterval(tickClock,5000);
+  var excl=((S&&S.exclude&&S.exclude())||'').split(',').map(function(s){return s.trim()}).filter(Boolean);
+  var frac=(S&&S.widthFraction&&S.widthFraction())||0.65;
+  function clean(){return text.replace(/\s+$/,'')}
+  function fit(){
+    var lines=clean().split('\n'),cols=1;
+    lines.forEach(function(l){cols=Math.max(cols,l.length)});
+    var w=innerWidth||document.documentElement.clientWidth;
+    if(!w)return false;
+    pre.style.fontSize=(w*frac/cols/0.6)+'px';
+    return true;
+  }
+  addEventListener('resize',function(){fit()});
+  function whenSized(cb){ if(fit())cb(); else requestAnimationFrame(function(){whenSized(cb)}); }
+  function run(TTE,mode){
+    var names=TTE.effectNames().filter(function(n){return excl.indexOf(n)<0});
+    if(!names.length)names=TTE.effectNames();
+    log('tte effects available: '+TTE.effectNames().length+' (mode '+mode+', active '+names.length+')');
+    var last=null,fx=null,first=true;
+    pre.textContent=clean();
+    whenSized(function(){next()});
+    function next(){
+      var e,fe=(S&&S.forceEffect&&S.forceEffect())||'';
+      if(fe&&TTE.effectNames().indexOf(fe)>=0)e=fe;
+      else{do{e=names[Math.floor(Math.random()*names.length)]}while(e===last&&names.length>1)}
+      last=e;
+      try{ if(fx)fx.destroy(); }catch(x){}
+      pre.textContent=clean();fit();
+      var frames=0,t0=0;
+      try{
+        fx=new TTE.TextEffect(pre,{effect:e,autoplay:false,background:'#000',fps:60,seed:Math.floor(Math.random()*1e9),respectReducedMotion:false,onFinish:function(){}});
+      }catch(err){log('effect '+e+' failed: '+err.message);setTimeout(next,200);return}
+      function count(ts){ if(!t0)t0=ts; frames++; if(fx&&fx.running)requestAnimationFrame(count); }
+      requestAnimationFrame(count);
+      if(first){first=false;try{S&&S.drawn&&S.drawn(mode,TTE.effectNames().length,e)}catch(x){}}
+      fx.play().then(function(){
+        setTimeout(next,1500);
+      },function(){setTimeout(next,0)});
+    }
+  }
+  function loadBundle(why){
+    log('tte.js ES module fallback ('+why+'): loading tte-bundle.js');
+    var sc=document.createElement('script');sc.src='tte-bundle.js';
+    sc.onload=function(){
+      if(window.TTE&&TTE.TextEffect){var T=window.TTE;run({TextEffect:T.TextEffect,effectNames:function(){var n=T.effectNames;n=(typeof n==='function')?n():n;return (n&&n.slice)?n.slice():(T.effects?Object.keys(T.effects):[])}},'bundle')}
+    };
+    document.head.appendChild(sc);
+  }
+  function boot(){
+    var imp,fm=(S&&S.forceMode&&S.forceMode())||'';
+    if(fm==='bundle'){loadBundle('forced');return}
+    try{imp=new Function('u','return import(u)')}catch(x){imp=null}
+    if(!imp){loadBundle('import() unsupported');return}
+    imp('./tte-js/src/index.js').then(function(m){
+      run({TextEffect:m.TextEffect,effectNames:m.effectNames},'official');
+    },function(err){loadBundle(err&&err.message||err)});
+  }
+  if(!text){fetch('screensaver-tv.txt').then(function(r){return r.text()}).then(function(t){text=t;boot()}).catch(function(){text='OMARCHY TV';boot()})}
+  else boot();
+})();
+</script></body></html>
