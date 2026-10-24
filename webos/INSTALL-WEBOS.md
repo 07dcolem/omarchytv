@@ -1,0 +1,126 @@
+# OmarchyTV for LG webOS — Installation Guide (`2.11.0-testing`)
+
+> **Status: Experimental (`testing`, NOT beta)**
+> This is an experimental **`testing`** build of **OmarchyTV** for **LG webOS TVs** (webOS 4.0 / 5.0 / 6.0 / 22 / 23 / 24), based on the latest Android TV release (**2.11.0**).
+> Community feedback and compatibility reports from LG webOS TV users are warmly welcome!
+
+---
+
+## Downloads (`v2.11.0-testing-webos`)
+
+- **LG webOS Package (`.ipk`):** [`omarchytv-webos-2.11.0-testing.ipk`](https://gitlab.com/piermark/omarchytv/-/raw/main/webos/releases/omarchytv-webos-2.11.0-testing.ipk?inline=false)
+  - SHA-256: `04eb928640a0212cad83457ad50b502bc81da440445e33ea2eee95e6eefcc9df`
+- **PC Plugin (Android TV + LG webOS):** [`omarchy-tv-pc-plugin-2.11.0-testing.tar.gz`](https://gitlab.com/piermark/omarchytv/-/raw/main/webos/releases/omarchy-tv-pc-plugin-2.11.0-testing.tar.gz?inline=false)
+  - SHA-256: `44df52534b739b6ca7371283732a3caa57355bf14d86e22d0d9102a142e60a98`
+
+---
+
+## Important Note on LG webOS Limitations
+
+Unlike Android TV, **unrooted LG webOS does not allow third-party apps to replace the system Home launcher** when pressing the physical `Home` button on the Magic Remote.
+Instead, **OmarchyTV (`com.omarchytv.home`) installs as a standard webOS app** on the LG Home Launcher bar.
+
+**Pro Tip — Single-button access via Quick Access:**
+Once OmarchyTV is installed, open it on your LG TV and **long-press the `0` (or `1`–`9`) number button** on your Magic Remote to assign OmarchyTV to a Quick Access shortcut. From then on, holding that number key from anywhere on the TV jumps straight into OmarchyTV.
+
+---
+
+## Method A — Easiest GUI Install (webOS Dev Manager on PC / Mac / Linux)
+
+1. **Create a free LG Developer Account** (if you don't already have one) at [webostv.developer.lge.com](https://webostv.developer.lge.com).
+2. **On your LG TV:**
+   - Open the **LG Content Store** (or **Apps**), search for **Developer Mode**, and install it.
+   - Launch the **Developer Mode** app and sign in with your LG Developer account.
+   - Toggle **Dev Mode Status** to **ON** (the TV will reboot).
+   - After the reboot, open **Developer Mode** again and enable **Key Server**. Note the **IP Address** and **Passphrase** displayed on screen.
+3. **On your computer:**
+   - Install and open **[webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop)** (available on Linux, macOS, and Windows; on Arch / Omarchy: `yay -S webos-dev-manager-bin` or AppImage).
+   - Add your TV using its IP address and the 6-character Passphrase from the Developer Mode app.
+   - Click **Apps → Install** (top right) and select **`omarchytv-webos-2.11.0-testing.ipk`**.
+4. **Launch OmarchyTV** from your LG TV's Home bar!
+
+---
+
+## Method B — Command-Line Install (`ares-cli` or `omarchy-tv update`)
+
+### 1. Install `@webos-tools/cli` on your PC
+
+```bash
+npm install -g @webos-tools/cli
+```
+
+### 2. Register your LG TV (`lgtv`) and fetch its SSH developer key
+
+Make sure **Developer Mode** and **Key Server** are enabled on your TV, then run:
+
+```bash
+# Replace 192.168.1.50 with your LG TV's LAN IP address
+ares-setup-device -a lgtv -i "host=192.168.1.50" -i "port=9922" -i "username=prisoner"
+
+# Enter the 6-character Passphrase shown in the TV's Developer Mode app
+ares-novacom --device lgtv --getkey
+```
+
+### 3. Install & Launch the `.ipk`
+
+With `ares-install` directly:
+
+```bash
+ares-install --device lgtv omarchytv-webos-2.11.0-testing.ipk
+ares-launch  --device lgtv com.omarchytv.home
+```
+
+Or using the **OmarchyTV PC Plugin (`2.11.0-testing`)**:
+
+```bash
+omarchy-tv update omarchytv-webos-2.11.0-testing.ipk --tv lgtv
+```
+
+---
+
+## Connecting Your Omarchy Linux PC (Live Stats, Themes & Wallpaper)
+
+The `2.11.0-testing` PC plugin includes a lightweight HTTP + CORS bridge (`omarchy-tv webos-serve`) so your LG webOS TV can display live PC telemetry (CPU, RAM, uptime, GPU, active theme, and AI credit usage) without requiring native sockets on the TV.
+
+### 1. Start the bridge on your Omarchy PC
+
+```bash
+# Extract and install the 2.11.0-testing PC plugin
+tar -xzf omarchy-tv-pc-plugin-2.11.0-testing.tar.gz
+cd pc-plugin
+mkdir -p ~/.local/share ~/.local/bin
+cp -r omarchy-link ~/.local/share/omarchy-link
+cp -r omarchy-tv   ~/.local/share/omarchy-tv
+ln -sf ~/.local/share/omarchy-link/bin/omarchy-link ~/.local/bin/omarchy-link
+ln -sf ~/.local/share/omarchy-tv/bin/omarchy-tv     ~/.local/bin/omarchy-tv
+
+# Start the webOS LAN bridge on port 8765
+omarchy-tv webos-serve --port 8765
+```
+
+### 2. Pair from your LG TV
+
+1. On your LG TV inside OmarchyTV, switch to **Workspace `4` (`pc`)** using the top bar or D-pad, or open the **Menu → Connect Omarchy Linux**.
+2. Select **`[ pair ]`** (or **Connect Omarchy Linux**) and enter your PC's LAN IP address (for example `192.168.1.100` or `192.168.1.100:8765`).
+3. The TV will immediately begin polling `/v1/status` every 5 seconds and display your PC's hostname, CPU/RAM load, uptime, and active Omarchy theme.
+
+---
+
+## Controls on LG Magic Remote / Standard IR Remote
+
+- **Arrow keys (Up / Down / Left / Right):** Navigate between top bar workspaces, dashboard panels, app dock tiles, and menu items.
+- **OK / Wheel Click (`Enter`):** Activate the focused app tile, workspace, or menu action.
+- **Back (`keyCode 461` / `Backspace` / `Escape`):** Close open menus, exit the screensaver, or return to Workspace 1.
+- **Number keys `1`–`5`:** Jump directly to Workspace `1` (`home`), `2` (`tv`), `3` (`apps`), `4` (`pc`), or `5` (`sys`).
+- **Magic Remote Pointer (Cursor):** Hover and click any workspace tab, panel button, app tile, or menu entry directly.
+
+---
+
+## Uninstalling or Returning to Stock LG Home
+
+OmarchyTV on LG webOS never modifies system files or disables any built-in TV packages:
+- Press the **Home** button on your LG remote at any time to return to the stock LG webOS launcher.
+- To uninstall OmarchyTV completely, either hold **OK** on the OmarchyTV icon on the LG Home bar and select **Delete**, or run:
+  ```bash
+  ares-install --device lgtv --remove com.omarchytv.home
+  ```

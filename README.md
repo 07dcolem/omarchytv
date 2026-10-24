@@ -5,7 +5,7 @@
 Created by **Marco Porro** · based on [tv-vibehack](https://github.com/Gathin23/tv-vibehack) by **Gathin**
 · [X / @MarcoPorro](https://x.com/MarcoPorro) · [marcoporro.it](https://www.marcoporro.it)
 
-Published: **23 October 2026 (beta)** · Version **2.11.0-beta** · License **MIT**
+Published: **23 October 2026 (beta)** · Version **2.11.0-beta** (Android TV) / **2.11.0-testing** (LG webOS experimental) · License **MIT**
 
 > [!WARNING]
 > **BETA SOFTWARE: THINGS MAY NOT WORK.** OmarchyTV has been tested on a few devices (Sony KD-55XE9005 on Android 9,
@@ -56,7 +56,8 @@ OmarchyTV; see [Trademarks](#trademarks).*
 - **Stats** (CPU, RAM, now playing, deploys) every 5 s, only while the TV home is visible.
 - **Theme sync and theme push**: the active Omarchy theme follows to the TV; `omarchy-tv themes push` sends your
   custom themes and backgrounds (up to 50 MB in total on the TV, strictly validated).
-- **APK update** over adb (`omarchy-tv update`), refusing any APK with a different certificate or a lower version.
+- **APK / IPK update**: `omarchy-tv update` updates Android TV via `adb` (refusing any APK with a different certificate or a lower version) and LG webOS via `ares-install`.
+- **LG webOS LAN bridge**: `omarchy-tv webos-serve` exposes `/v1/status`, `/v1/themes`, and `/v1/wallpaper` over LAN for LG webOS TVs.
 - **Live screen sharing ("Schermo PC")**: your Omarchy desktop on the TV as a low-latency H.264 stream
   (gpu-screen-recorder or wf-recorder, hardware encoding when available, optional audio), started from the PC or
   from the TV (the PC asks to confirm). Not Wi-Fi Direct Miracast, which is unreliable on Linux.
@@ -65,6 +66,8 @@ OmarchyTV; see [Trademarks](#trademarks).*
 - Omarchy-official look: Walker menu, gum fallback in the terminal, colours of the active theme, notify-send.
 
 ## Install (summary)
+
+### Android TV / Google TV (`2.11.0-beta`)
 1. Enable Developer options and network debugging on the TV.
 2. `adb connect <tv-ip>:5555`, then `adb install -r omarchytv-release-2.11.0.apk`.
 3. Choose OmarchyTV as the home app (the installer script verifies it and rolls back on failure).
@@ -77,12 +80,21 @@ Full guide (English + Italiano), checksums and the signing-certificate fingerpri
 - Setup with an AI assistant (Claude Code, Codex, Gemini CLI, Cursor, ChatGPT, Grok Bot): **[docs/AI-ASSISTED-SETUP.md](docs/AI-ASSISTED-SETUP.md)**
 Signing certificate SHA-256: `90aa68d9f45e623eadfd349ab1eb66042356f95ff6347a4568c3f3a78f8ea33d`.
 
+### LG webOS TV — Experimental (`2.11.0-testing`, not beta)
+An experimental **`testing`** edition for **LG webOS TVs** (`omarchytv-webos-2.11.0-testing.ipk`) based on the 2.11.0 release is available in [`webos/`](webos/INSTALL-WEBOS.md):
+- **Install Guide:** **[webos/INSTALL-WEBOS.md](webos/INSTALL-WEBOS.md)**
+- **Release Notes & Checksums:** **[webos/RELEASE-2.11.0-testing-webos.md](webos/RELEASE-2.11.0-testing-webos.md)**
+- **Direct Downloads:**
+  - [`omarchytv-webos-2.11.0-testing.ipk`](https://gitlab.com/piermark/omarchytv/-/raw/main/webos/releases/omarchytv-webos-2.11.0-testing.ipk?inline=false) (SHA-256: `04eb928640a0212cad83457ad50b502bc81da440445e33ea2eee95e6eefcc9df`)
+  - [`omarchy-tv-pc-plugin-2.11.0-testing.tar.gz`](https://gitlab.com/piermark/omarchytv/-/raw/main/webos/releases/omarchy-tv-pc-plugin-2.11.0-testing.tar.gz?inline=false) (SHA-256: `44df52534b739b6ca7371283732a3caa57355bf14d86e22d0d9102a142e60a98`)
+
 ## Compatible devices
 - **Works**: Android TV and Google TV devices (Android 9+). Tested on Sony KD-55XE9005 (Android 9), Google TV Streamer
   (Android 14) and Noblex/Hisense (Android 11). Needs network debugging / adb.
+- **Experimental (`testing`)**: **LG webOS TVs** (webOS 4.0+ via Developer Mode / `webOS Dev Manager` or `ares-install`; see [webos/INSTALL-WEBOS.md](webos/INSTALL-WEBOS.md)). Community feedback from LG webOS TV users is welcome!
 - **Untested**: Fire OS devices (Fire TV Stick 4K Max / 4K Plus, Android-based) and projectors with Android TV
   (e.g. JMGO global versions).
-- **Not supported**: LG webOS, Samsung Tizen, Fire TV Stick 4K Select (Amazon Vega OS, not Android), Roku, Apple TV.
+- **Not supported**: Samsung Tizen, Fire TV Stick 4K Select (Amazon Vega OS, not Android), Roku, Apple TV.
 - **Tip**: on a non-Android TV, plug in an Android TV / Google TV stick.
 
 ## Tested TVs
@@ -96,7 +108,7 @@ Signing certificate SHA-256: `90aa68d9f45e623eadfd349ab1eb66042356f95ff6347a4568
 Tested yours? Open an issue with the "TV report" template.
 
 ## Trademarks
-Netflix, Prime Video, YouTube, Google, Android, Android TV, Google TV, Chromecast, Sony, BRAVIA, X, Disney+, Spotify
+Netflix, Prime Video, YouTube, Google, Android, Android TV, Google TV, Chromecast, Sony, BRAVIA, LG, webOS, X, Disney+, Spotify
 and all other product names, logos and app icons are trademarks of their respective owners. They appear only to
 identify apps installed on your TV; app icons are loaded from the TV and are not bundled. "Omarchy" and its logo
 are the Omarchy project's branding. OmarchyTV is an unofficial fan project, not affiliated with or endorsed by any
