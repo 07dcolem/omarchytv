@@ -105,6 +105,7 @@
             android:exported="false"
             android:excludeFromRecents="true"
             android:screenOrientation="landscape"
+            android:windowSoftInputMode="adjustResize|stateHidden"
             android:theme="@style/Theme.TvHome" />
 
         <!-- "> agents" monitor (activity and answers come from the paired Omarchy Linux PC). -->
