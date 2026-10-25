@@ -307,4 +307,13 @@
     <string name="v210_arrange">Felder anordnen</string>
     <string name="v210_arrange_hint">◀▶▲▼ verschieben · OK speichern · Zurück abbrechen</string>
     <string name="v210_arrange_reset">Positionen zurücksetzen</string>
+    <string name="ss_speed">Effekt-Geschwindigkeit</string>
+    <string name="speed_slow">langsam</string>
+    <string name="speed_normal">normal</string>
+    <string name="speed_fast">schnell</string>
+    <string name="wp_sync_pc">PC-Hintergrund synchronisieren</string>
+    <string name="grok_bot_hub">Grok Bot &amp; KI</string>
+    <string name="grok_bot_open">Grok Bot (WebApp)</string>
+    <string name="grok_bot_pin_all">KI-WebApps auf Home anheften</string>
+    <string name="grok_bot_mcp">MCP-Server (/mcp)</string>
 </resources>
