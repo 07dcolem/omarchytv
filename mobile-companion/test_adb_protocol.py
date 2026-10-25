@@ -361,7 +361,7 @@ public class MobileIntegrationTest {
         assert pr.ok && pr.tvName.contains("Sony Bravia");
 
         List<ThemeCatalog.ThemeEntry> themes;
-        try (FileInputStream fis = new FileInputStream("/workspace/omarchytv-app/mobile-companion/app/src/main/assets/omarchy_themes.json")) {
+        try (FileInputStream fis = new FileInputStream("app/src/main/assets/omarchy_themes.json")) {
             themes = ThemeCatalog.loadFromStream(fis);
         }
         assert themes.size() >= 23;
@@ -373,7 +373,7 @@ public class MobileIntegrationTest {
         System.out.println("[PASS] OmarchyLinkClient HMAC-SHA256 ping, theme switch, remote key, prompt, wallpaper & banner passed");
 
         // 5. Test WebOsBridgeServer (:18765) for LG webOS + Samsung Tizen / Universal WebTV + .ipk validator
-        File realIpk = new File("/workspace/omarchytv-webos/omarchytv-webos-2.11.0-testing.ipk");
+        File realIpk = new File("../webos/releases/omarchytv-webos-2.11.0-testing.ipk");
         WebOsBridgeServer.IpkMetadata meta = WebOsBridgeServer.inspectIpkPackage(realIpk);
         assert meta.valid : "IPK validation failed: " + meta.error;
         assert "com.omarchytv.home".equals(meta.appId);
@@ -406,9 +406,9 @@ public class MobileIntegrationTest {
     }
 }
 """)
-            java_home = "/workspace/toolchain/jdk-17.0.20.1+1"
-            android_jar = "/workspace/toolchain/android-sdk/platforms/android-34/android.jar"
-            classes_dir = "/workspace/omarchytv-app/mobile-companion/build/classes"
+            java_home = os.environ.get("JAVA_HOME", "/usr/lib/jvm/default")
+            android_jar = os.path.join(os.environ.get("ANDROID_HOME", ""), "platforms/android-34/android.jar")
+            classes_dir = "build/classes"
             subprocess.check_call([
                 f"{java_home}/bin/javac",
                 "-cp", f"{classes_dir}:{android_jar}",
@@ -418,7 +418,7 @@ public class MobileIntegrationTest {
             subprocess.check_call([
                 f"{java_home}/bin/java",
                 "-ea",
-                "-cp", f"{tmpdir}:{classes_dir}:/home/box/.gradle/caches/modules-2/files-2.1/org.json/json/20231013/e22e0c040fe16f04ffdb85d851d77b07fc05ea52/json-20231013.jar:{android_jar}",
+                "-cp", f"{tmpdir}:{classes_dir}:$HOME/.gradle/caches/modules-2/files-2.1/org.json/json/20231013/e22e0c040fe16f04ffdb85d851d77b07fc05ea52/json-20231013.jar:{android_jar}",
                 "MobileIntegrationTest",
                 tmpdir
             ])

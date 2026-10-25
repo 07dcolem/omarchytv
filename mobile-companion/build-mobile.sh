@@ -5,15 +5,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ANDROID_MAIN="${REPO_ROOT}/launcher/app/src/main"
 
-export JAVA_HOME="${JAVA_HOME:-/workspace/toolchain/jdk-17.0.20.1+1}"
+export JAVA_HOME="${JAVA_HOME:-${ HOME }/android-sdk/jdk}"
 export PATH="${JAVA_HOME}/bin:${PATH}"
-export ANDROID_HOME="${ANDROID_HOME:-/workspace/toolchain/android-sdk}"
+export ANDROID_HOME="${ANDROID_HOME:-${HOME}/Android/Sdk}"
 BUILD_TOOLS="${ANDROID_HOME}/build-tools/34.0.0"
 PLATFORM_JAR="${ANDROID_HOME}/platforms/android-34/android.jar"
 
-KEYSTORE="${OMARCHY_KEYSTORE:-/workspace/omarchytv/keys/omarchytv-release.jks}"
+KEYSTORE="${OMARCHY_KEYSTORE:-${HOME}/.config/omarchytv/omarchytv-release.jks}"
 KEY_ALIAS="${OMARCHY_KEY_ALIAS:-omarchytv}"
-PASS_FILE="${OMARCHY_KEY_PASS_FILE:-/workspace/omarchytv/keys/password.txt}"
+PASS_FILE="${OMARCHY_KEY_PASS_FILE:-${HOME}/.config/omarchytv/password.txt}"
 
 mkdir -p "${SCRIPT_DIR}/app/src/main/res/drawable" \
          "${SCRIPT_DIR}/app/src/main/res/font" \
@@ -153,7 +153,7 @@ if [ -d "${ANDROID_MAIN}" ]; then
   cp -f "${ANDROID_MAIN}/res/font/caskaydia_mono_regular.ttf" "${SCRIPT_DIR}/app/src/main/res/font/"
   cp -f "${ANDROID_MAIN}/res/font/caskaydia_mono_bold.ttf" "${SCRIPT_DIR}/app/src/main/res/font/"
   cp -f "${ANDROID_MAIN}/assets/omarchy_themes.json" "${SCRIPT_DIR}/app/src/main/assets/omarchy_themes.json"
-  cp -f "${ANDROID_MAIN}/assets/licenses/FONT-LICENSE-OFL.txt" "${SCRIPT_DIR}/app/src/main/assets/licenses/FONT-LICENSE-OFL.txt"
+  [ -f "${ANDROID_MAIN}/assets/licenses/FONT-LICENSE-OFL.txt" ] && cp -f "${ANDROID_MAIN}/assets/licenses/FONT-LICENSE-OFL.txt" "${SCRIPT_DIR}/app/src/main/assets/licenses/FONT-LICENSE-OFL.txt" || true
 fi
 
 BUILD_DIR="${SCRIPT_DIR}/build"
@@ -172,8 +172,8 @@ echo "[2/6] Linking resources & packaging assets with aapt2..."
   --java "${BUILD_DIR}/gen" \
   --min-sdk-version 26 \
   --target-sdk-version 34 \
-  --version-code 21100 \
-  --version-name "2.11.0-beta" \
+  --version-code 21200 \
+  --version-name "2.12.0-beta" \
   -o "${BUILD_DIR}/apk/unaligned.apk"
 
 echo "[3/6] Compiling Java sources with JDK 17..."
@@ -197,8 +197,8 @@ echo "[5/6] Adding classes.dex and aligning with zipalign..."
 (cd "${BUILD_DIR}/dex" && "${JAVA_HOME}/bin/jar" uf "${BUILD_DIR}/apk/unaligned.apk" classes.dex)
 "${BUILD_TOOLS}/zipalign" -f -p 4 "${BUILD_DIR}/apk/unaligned.apk" "${BUILD_DIR}/apk/aligned.apk"
 
-OUT_BETA="${REPO_ROOT}/omarchytv-mobile-2.11.0-beta.apk"
-OUT_STD="${REPO_ROOT}/omarchytv-mobile-2.11.0.apk"
+OUT_BETA="${REPO_ROOT}/omarchytv-mobile-2.12.0-beta.apk"
+OUT_STD="${REPO_ROOT}/omarchytv-mobile-2.12.0.apk"
 
 echo "[6/6] Signing release APK with OmarchyTV release key..."
 "${BUILD_TOOLS}/apksigner" sign \

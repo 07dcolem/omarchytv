@@ -1,4 +1,4 @@
-// OmarchyTV Mobile (com.omarchytv.mobile) v2.11.0-beta
+// OmarchyTV Mobile (com.omarchytv.mobile) v2.12.0-beta
 // Universal Smart TV Companion (Android TV, LG webOS, Samsung Tizen, Hisense VIDAA)
 // Can be built via Gradle or standalone ./build-mobile.sh (aapt2 + javac + d8 + zipalign + apksigner)
 plugins {
