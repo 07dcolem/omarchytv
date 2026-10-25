@@ -3,7 +3,7 @@
 The wire contract between an Omarchy PC (plugin `com.omarchytv.link`) and the
 OmarchyTV launcher (`com.omarchytv.home`). The PC side and a mock TV
 (`mock/mock_tv.py`) implement this document. The TV launcher implements the
-**TV** column. `docs/vectors.json` has byte-exact test vectors. The mock does not enforce the rate limits (§3) or the 5-minute pairing window. Everything else it does. MUST, SHOULD and
+**TV** column. `docs/vectors.json` has byte-exact test vectors. The mock does not enforce the rate limits (§3), except `pair/*` with `pair_limit=True`, or the 5-minute pairing window. Everything else it does. MUST, SHOULD and
 MAY are used as in RFC 2119.
 
 ## 1. Roles and why the TV is the server

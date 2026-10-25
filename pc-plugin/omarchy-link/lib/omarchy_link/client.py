@@ -47,7 +47,7 @@ def probe(host: str, port: int, timeout: float = 3.0) -> dict:
         c.close()
 
 
-def _post_plain(host: str, port: int, path: str, payload: dict, timeout: float = 10.0) -> dict:
+def _post_plain(host: str, port: int, path: str, payload: dict, timeout: float = 10.0, _retry: bool = True) -> dict:
     body = json.dumps(payload).encode()
     c = _conn(host, port, timeout)
     try:
@@ -58,6 +58,14 @@ def _post_plain(host: str, port: int, path: str, payload: dict, timeout: float =
             obj = json.loads(data or b"{}")
         except ValueError:
             obj = {}
+        if r.status == 429 and _retry:
+            # pair/* is 1 request per 2 s per peer (§3): start and confirm share it, so a fast PC waits once.
+            try:
+                wait = min(max(int(r.getheader("Retry-After", "2")), 1), 5)
+            except ValueError:
+                wait = 2
+            time.sleep(wait)
+            return _post_plain(host, port, path, payload, timeout, False)
         if r.status != 200:
             raise LinkError(obj.get("message") or f"HTTP {r.status}", r.status, obj.get("error", ""))
         return obj
