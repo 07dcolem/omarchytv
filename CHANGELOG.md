@@ -1,5 +1,44 @@
 # Changelog
 
+## [2.12.0-beta] — 2026-10-25 (versionCode 20 — 26 MIT Themes & Original Wallpapers, Grok Bot & AI Hub, Native MCP Server, Sharp AQUOS & Scrollable Menus)
+
+### Release Artifacts (`v2.12.0-beta`)
+- **Android TV Launcher APK (`omarchytv-release-2.12.0-beta.apk`):** `versionCode 20`, SHA-256 `f1426db057fdc958fe562d1afd57a710b896e2f63d4fa6c2ec6c8ceefdfee11e`
+- **PC / Mac Plugin (`omarchy-tv-pc-plugin-2.12.0-beta.tar.gz`):** `2.12.0-beta`, SHA-256 `2aef33b30e38eba6eb4355ad597bf382bb5e7210be59d7070d6b5f509765bd0c`
+- **Android Phone Companion (`omarchytv-mobile-2.12.0-beta.apk`):** `versionCode 21200`, SHA-256 `42bb62aa6169c52afacc9b477d25f6f95fffe2eeea9f779394606e1a4e5ad0a4`
+- **Signing Certificate SHA-256:** `90aa68d9f45e623eadfd349ab1eb66042356f95ff6347a4568c3f3a78f8ea33d`
+
+### Added
+- **26 MIT-Only Themes & Original Bundled MIT Wallpapers:**
+  - Added 3 new 100%-MIT community themes with their original MIT wallpapers:
+    - **`jade-horse`** ([dhh/omarchy-jade-horse-theme](https://github.com/dhh/omarchy-jade-horse-theme), MIT, © 2026 David Heinemeier Hansson): `01-ink-horse.webp`, `02-carved-jade-horse.webp`, `03-mountain-horses.webp`, `04-omarchy.webp`.
+    - **`year-of-the-horse`** ([dhh/omarchy-year-of-the-horse-theme](https://github.com/dhh/omarchy-year-of-the-horse-theme), MIT, © 2026 David Heinemeier Hansson): `01-ink-horse.webp`, `02-paper-horse.webp`, `03-mountain-horses.webp`, `04-omarchy.webp`.
+    - **`hermarchy`** ([archer-clawbot/omarchy-hermarchy-theme](https://github.com/archer-clawbot/omarchy-hermarchy-theme), MIT, © 2026 Archer Clawbot): `01-hermarchy-command.webp`, `02-hermarchy.webp`, `03-hermarchy.webp`, `04-omarchy.webp`.
+  - Generated 3840×2160 flat two-color Omarchy wordmark wallpapers (`01-omarchy.webp`) for `last-horizon`, `solitude`, and `starship` using each theme's exact MIT `background` and `accent` colors, so all **26 bundled MIT themes** have at least one bundled 100%-MIT wallpaper.
+- **Grok Bot & AI WebApps + Native `> ask` / `> grok bot` Integration:**
+  - Built-in AI WebApps (**Grok Bot**, **Grok (X)**, **ChatGPT**, **Claude**, **Hermes**) running in the sandboxed `:web` process (`WebAppActivity`) with persistent cookies/DOM storage (log in once or scan QR on the TV) and D-pad spatial navigation + virtual cursor (long-press Back).
+  - **Grok Bot** appears on the Home screen app shelf out of the box (removable/hidable like any app) and in Walker search (`> grok bot`, `> ask`, `Grok Bot`, `ChatGPT`, `Claude`, `Hermes`).
+  - **Grok Bot & AI Hub** reachable from the Main Menu, Workspace 4 (`PC`), Workspace 5 (`System`), and `AI & terminal`.
+  - Added `grok` (`Grok Bot`) and `hermes` (`Hermes Agent`) CLI/API providers to `omarchy-link` (`AUTO_ORDER` and `clis.py`).
+- **Native MCP Server (TV `:8999/mcp` + PC `omarchy-tv mcp`):**
+  - **TV Native MCP Server (`POST /mcp` & `POST /v1/mcp` in `LinkServer.java`):** JSON-RPC 2.0 MCP endpoint (`protocolVersion: "2024-11-05"`) authenticated via `OTV1` HMAC or `Authorization: Bearer <token>`, exposing `tv_get_status`, `tv_list_themes`, `tv_set_theme`, `tv_send_key`, `tv_launch_app`, `tv_cast_media`, `tv_show_notification`, and `tv_open_ai_webapp`. Advertises `"mcp"` in `/v1/status` capabilities.
+  - **PC MCP Bridge (`omarchy-tv mcp [--stdio|--http] [--port 8990]`):** Stdio and HTTP JSON-RPC 2.0 MCP server with 256-bit Bearer token auth (`~/.config/omarchy-tv/mcp-token`, `0600`) and strict TV-only tool whitelist.
+- **Screensaver Effect Speed:** Added `"screensaverSpeed": "slow" | "normal" | "fast"` (`Effect speed` in the Screensaver menu), scaling both `tte.js` WebView effects and the native ASCII fallback.
+
+### Fixed
+- **Issue #3 — Bundled MIT Wallpapers Overwritten by PC Sync & Non-Scrollable Theme Menu:**
+  - Wrapped `AsciiMenu` rows in a `<ScrollView>` (`popup_inputs.xml` + `AsciiMenu.java` `scrollIntoView`) so long menus (including the 26-theme list) scroll smoothly past `matte-black` all the way to the bottom on 1080p TVs.
+  - Added `Sync PC wallpaper` toggle (`syncPcWallpaper`, default `false`) in the Themes and Wallpaper menus so PC pairing/sync never overwrites the TV's bundled MIT wallpaper unless explicitly enabled.
+- **Issue #4 — Sharp AQUOS & Multi-Brand Live TV Detection:**
+  - Expanded `live_tv_packages` (`com.sony.dtv.tvx`, `jp.co.sharp.av.android.aquostvapp`, `com.google.android.tv`, `com.android.tv`, `org.dtvkit.inputsource`, `com.tcl.tv`, `com.hisense.tv.livetv`, `com.philips.tv.tvapp`) and added explicit `jp.co.sharp.av.android.aquostvapp/.TvActivity` fallback when TIF returns only internal tuner services.
+- **Issue #5 — App Hiding & Unhiding Broken:**
+  - Fixed `appTileMenu()` storing `pkg/activity` instead of `packageAt(position)` when hiding apps from the Home shelf or grid, updated `LauncherConfig.isHidden()` and `hiddenPage()` to normalize legacy `pkg/activity` entries and support `web:<id>` WebApp tiles, and added a direct **Hidden apps** row to Workspace 5 (`System`).
+
+### Thanks
+- **Anderson Leite** ([@x_andersonleite](https://x.com/x_andersonleite) / [@anderson-leite](https://gitlab.com/anderson-leite)): Sharp AQUOS testing, Issue #3, Issue #4, Issue #5 reports, and MR !1.
+- **David Heinemeier Hansson** ([@dhh](https://x.com/dhh)): `jade-horse` and `year-of-the-horse` MIT themes & wallpapers.
+- **Archer Clawbot**: `hermarchy` MIT theme & wallpapers.
+
 ## [2.11.0-beta-mobile] — 2026-10-24 (OmarchyTV Mobile — Universal Smart TV Phone Installer & Companion)
 
 ### Added (`mobile-companion/` — `omarchytv-mobile-2.11.0-beta.apk`)
