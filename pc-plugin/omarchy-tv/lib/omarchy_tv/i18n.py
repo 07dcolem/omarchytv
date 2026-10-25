@@ -61,7 +61,7 @@ def t(key: str, **fmt) -> str:
 EN = {
     "menu.status": "Status", "menu.pair": "Pair TV", "menu.themes": "Themes and wallpapers",
     "menu.screen": "PC screen", "menu.update": "Update APK", "menu.cast": "Cast", "menu.remote": "Remote",
-    "menu.webos": "LG webOS server (LAN)",
+    "menu.webos": "LG webOS server (LAN)", "menu.mcp": "Grok Bot MCP",
     "not_paired": "TV not paired: run omarchy-tv pair",
     "themes.push": "Push a theme", "themes.list": "Themes on the TV", "themes.select": "Select on the TV",
     "themes.delete": "Delete", "themes.prompt": "Themes…",
@@ -102,7 +102,7 @@ EN = {
 IT = {
     "menu.status": "Stato", "menu.pair": "Abbina TV", "menu.themes": "Temi e sfondi",
     "menu.screen": "Schermo PC", "menu.update": "Aggiorna APK", "menu.cast": "Cast", "menu.remote": "Telecomando",
-    "menu.webos": "Server LG webOS (LAN)",
+    "menu.webos": "Server LG webOS (LAN)", "menu.mcp": "Grok Bot MCP",
     "not_paired": "TV non abbinata: omarchy-tv pair",
     "themes.push": "Invia un tema", "themes.list": "Temi sulla TV", "themes.select": "Scegli sulla TV",
     "themes.delete": "Elimina", "themes.prompt": "Temi…",
