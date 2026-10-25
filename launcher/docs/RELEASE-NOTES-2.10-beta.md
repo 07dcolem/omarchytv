@@ -42,3 +42,7 @@ modello "TV report". · Tested on the emulator; real-TV reports welcome.
 
 ## 2.11.0 (versionCode 19)
 - See [CHANGELOG.md](../../CHANGELOG.md). APK: `omarchytv-release-2.11.0.apk` SHA-256 `33248d55f359905dd6068bfeca16e76a02da54150a119aae3ecfa0938ddc5111`, cert `90aa68d9…a33d`.
+
+## 2.12.0-beta (versionCode 20)
+- 26 MIT-only themes (`jade-horse`, `year-of-the-horse`, `hermarchy` + Omarchy wordmark wallpapers for `last-horizon`, `solitude`, `starship`), scrollable `AsciiMenu`, `Sync PC wallpaper` toggle (off by default), Sharp AQUOS & multi-brand Live TV detection, fixed app hiding/unhiding + Workspace 5 `Hidden apps` shortcut, Screensaver effect speed (`slow`/`normal`/`fast`), built-in **Grok Bot & AI** WebApps (`Grok Bot`, `Grok (X)`, `ChatGPT`, `Claude`, `Hermes`), and native MCP server (`/mcp` on TV and `omarchy-tv mcp` on PC).
+- See [CHANGELOG.md](../../CHANGELOG.md). APK: `OmarchyTV-2.12.0-beta.apk` SHA-256 `f1426db057fdc958fe562d1afd57a710b896e2f63d4fa6c2ec6c8ceefdfee11e`, cert `90aa68d9…a33d`.
