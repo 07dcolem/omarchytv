@@ -1,35 +1,66 @@
-# Sony KD-55XE9005 (BRAVIA_ATV2_EU) - Lista di esempio (personalizzabile)
-# Basata su examples/sony-bravia-4k-gb e note da sony-xbr-x900e (cleanyourtv)
-# Everything is DISABLED (pm disable-user --user 0), not uninstalled.
-# Keep: com.sony.dtv.tvx, tvinput.*, braviasync*, remotepairing, rcpowerkey, uinputservice,
-# imeproxy, sonysystemservice, settingsprovider, com.mediatek.*, mtktvapi.agent, timers.
-# Kept enabled by choice: Chromecast, Miracast, Wi-Fi Direct, DLNA, Play Store. DNS untouched.
+# Sony KD-55XE9005 (BRAVIA 4K GB / BRAVIA_ATV2_EU, Android 9) — Verified Safe Debloat List
+# Every package below is disabled reversibly with:
+#   adb shell pm disable-user --user 0 <package>
+# Nothing is ever uninstalled. Restore at any time with `pm enable --user 0 <package>` or `tools/restore.sh`.
+#
+# Protected & untouched:
+#   com.sony.dtv.tvx, com.sony.dtv.tvinput.*, com.sony.dtv.braviasync*, com.sony.dtv.remotepairing,
+#   com.sony.dtv.rcpowerkey, com.sony.dtv.uinputservice, com.sony.dtv.imeproxy,
+#   com.sony.dtv.sonysystemservice, com.sony.dtv.settingsprovider, com.mediatek.*, mtktvapi.agent,
+#   com.sony.dtv.timers, com.google.android.tungsten.setupwraith (Wi-Fi),
+#   com.google.android.apps.mediashell (Chromecast built-in), com.google.android.gms,
+#   com.android.vending (Play Store), Miracast, Wi-Fi Direct, DLNA, and DNS settings.
+
+# Telemetry, ACR & background analytics
 tv.samba.ssm
+com.qterics.da.product
+com.sony.dtv.da.service
+com.sony.dtv.scrums.action
+com.sony.dtv.sonybugreportsys
+com.sony.dtv.sonyloglevelsettingsys
+com.sony.dtv.sonyloglevelsettingvnd
+com.google.android.tv.bugreportsender
+com.google.android.feedback
+
+# Promos, recommendations & stock launcher overlays
 com.sony.dtv.sonyselect
+com.sony.dtv.sonyselect.overlay
 com.sony.dtv.promos
 com.sony.dtv.discovery
 com.sony.dtv.bivlinfo
 com.sony.dtv.tvlaunchercustomizer
+com.sony.dtv.tvlaunchercustomizer.overlay.apporder
 com.google.android.tvrecommendations
 android.autoinstalls.config.sony.bravia
+
+# Retail store demo & B2B / Hotel mode suites
 com.sony.dtv.demomode
 com.sony.dtv.demosupport
 com.sony.dtv.multiscreendemo
-com.sony.dtv.da.service
-com.qterics.da.product
-com.sony.dtv.sonybugreportsys
-com.google.android.tv.bugreportsender
-com.google.android.feedback
+com.sony.dtv.b2b.hotelmode
+com.sony.dtv.b2b.rs232csupport
+com.sony.dtv.b2b.prosettings
+com.sony.dtv.b2b.importexport
+com.sony.dtv.b2b.noderuntime.normal
+com.sony.dtv.b2b.noderuntime.privilege
 com.sony.dtv.b2b.vendorprotocol
+com.sony.dtv.b2b.frameworkextension
+com.sony.dtv.b2b.webappruntimedrm
+
+# Unused regional catch-up (UK YouView) & built-in help nags
+com.sony.dtv.youview
+com.youview.tv.servicehost
 com.sony.dtv.customersupport
 com.sony.dtv.smarthelp
 com.sony.dtv.imanual
+
+# Discontinued / stub Google & Sony media apps
+com.google.android.music
 com.google.android.youtube.tvmusic
 com.google.android.videos
 com.google.android.play.games
-# disattivare solo DOPO aver scelto il salvaschermo OmarchyTV
-com.google.android.backdrop
 com.sony.dtv.smartmediaapp
 com.sony.dtv.osat.music
-# lasciato attivo per sicurezza (Chromecast/Google Home)
-# com.google.android.tv.remote.service
+
+# Stock screensaver (disable only AFTER setting OmarchyTV as the active screensaver)
+com.google.android.backdrop
