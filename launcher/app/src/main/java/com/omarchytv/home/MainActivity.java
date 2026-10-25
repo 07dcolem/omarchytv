@@ -714,8 +714,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
         java.util.Set<String> seenNames = new java.util.HashSet<>();
         for (Walker.Item it : items) seenNames.add(it.name.toLowerCase(java.util.Locale.ROOT));
         for (LauncherConfig.WebApp w : LauncherConfig.BUILTIN_AI_WEBAPPS) {
+            final LauncherConfig.WebApp fw = w;
+            if ("grok-bot".equals(w.id)) {
+                if (!seenNames.contains(w.name.toLowerCase(java.util.Locale.ROOT))) {
+                    items.add(new Walker.Item(w.name, tApp, () -> AskActivity.open(this)));
+                }
+                items.add(new Walker.Item("Grok Web (grok.com)", tApp, () -> WebAppActivity.open(this, fw)));
+                continue;
+            }
             if (!seenNames.contains(w.name.toLowerCase(java.util.Locale.ROOT))) {
-                final LauncherConfig.WebApp fw = w;
                 items.add(new Walker.Item(w.name, tApp, () -> WebAppActivity.open(this, fw)));
             }
         }
@@ -864,6 +871,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
         resumed = true;
         OmarchyLink.setHomeVisible(true);
         hideSaver();   // back from the screensaver window (own process)
+        Theme.apply(getWindow().getDecorView());
         ((WallpaperView) findViewById(R.id.wallpaper)).refreshIfChanged();
         platesSig = "";
         resetIdle();
@@ -2170,21 +2178,25 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
     /**
      * Grok Bot & AI hub: works like Omarchy on desktop — open Grok Bot (or Grok / ChatGPT / Claude / Hermes)
      * directly in WebAppActivity (:web process with persistent cookies/DOM storage & D-pad cursor), or use
-     * paired PC "> ask" / "> agents" and the TV MCP server (:8989/mcp).
+     * paired PC "> ask" / "> agents" and the TV MCP server (:47800/mcp).
      */
     private AsciiMenu.Page grokBotPage() {
         AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.grok_bot_hub));
         LauncherConfig.WebApp grokBot = LauncherConfig.BUILTIN_AI_WEBAPPS[0];
+        p.add("Grok Bot (Omarchy TUI)", "tui ›", r -> {
+            LauncherConfig.update(this, j -> LauncherConfig.ensureWebApp(j, grokBot, true));
+            builtWith = LauncherConfig.get(this);
+            reloadApps();
+            if (home != null) home.bind(builtWith, adapter);
+            AskActivity.open(this);
+            return false;
+        });
         p.add(str(R.string.grok_bot_open), "grok.com ›", r -> {
             LauncherConfig.update(this, j -> LauncherConfig.ensureWebApp(j, grokBot, true));
             builtWith = LauncherConfig.get(this);
             reloadApps();
             if (home != null) home.bind(builtWith, adapter);
             WebAppActivity.open(this, grokBot);
-            return false;
-        });
-        p.add(str(R.string.ask_entry), OmarchyLink.connected() ? "pc ›" : "›", r -> {
-            open(new Intent(this, AskActivity.class));
             return false;
         });
         p.add("> agents", OmarchyLink.connected() ? "pc ›" : "›", r -> {

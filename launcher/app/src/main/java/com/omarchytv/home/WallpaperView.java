@@ -209,8 +209,16 @@ public class WallpaperView extends View {
 
     private Bitmap decodeAsset(String asset, android.graphics.BitmapFactory.Options o) {
         try (java.io.InputStream in = getContext().getAssets().open(asset)) {
-            return android.graphics.BitmapFactory.decodeStream(in, null, o);
-        } catch (java.io.IOException e) {
+            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[16384];
+            int n;
+            while ((n = in.read(buf)) != -1) bos.write(buf, 0, n);
+            byte[] raw = bos.toByteArray();
+            if (raw.length >= 4 && raw[0] == 'U' && raw[1] == 'k' && raw[2] == 'l' && raw[3] == 'G') {
+                raw = android.util.Base64.decode(raw, android.util.Base64.DEFAULT);
+            }
+            return android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.length, o);
+        } catch (Exception e) {
             return null;
         }
     }
