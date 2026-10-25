@@ -813,7 +813,25 @@ public final class LinkServer {
 
     private Auth authenticate(Request req) {
         Auth a = new Auth();
-        Map<String, String> f = parseAuthorization(req.header("Authorization"));
+        String rawAuth = req.header("Authorization").trim();
+        if (("/mcp".equals(req.target) || "/v1/mcp".equals(req.target)) && rawAuth.startsWith("Bearer ")) {
+            String tokStr = rawAuth.substring(7).trim();
+            byte[] cand = decodeBearerToken(tokStr);
+            if (cand != null) {
+                for (LinkStore.Pc pc : store.list()) {
+                    if (LinkCrypto.equal(cand, pc.token)) {
+                        a.pcId = pc.id;
+                        a.token = pc.token;
+                        a.nonce = "mcp";
+                        if (store.seen(pc.id, req.peer)) host.onPcsChanged(null);
+                        return a;
+                    }
+                }
+            }
+            a.error = new Response(401, err("unauthorized", "invalid MCP Bearer token"));
+            return a;
+        }
+        Map<String, String> f = parseAuthorization(rawAuth);
         if (f == null) {
             a.error = new Response(401, err("unauthorized", "missing or bad Authorization"));
             return a;
@@ -924,6 +942,9 @@ public final class LinkServer {
         if ("PUT".equals(m) && "/v1/ai/providers".equals(p)) return providers(body, a.pcId);
         if ("PUT".equals(m) && "/v1/agents".equals(p)) return agentsPut(body, a.pcId);
         if ("GET".equals(m) && "/v1/agents".equals(p)) return new Response(200, agents());
+        if ("POST".equals(m) && ("/mcp".equals(p) || "/v1/mcp".equals(p))) {
+            return mcp(body);
+        }
         if ("POST".equals(m) && "/v1/unpair".equals(p)) {
             closeClients(a.pcId, false);
             store.remove(a.pcId);
@@ -931,6 +952,139 @@ public final class LinkServer {
             return new Response(200, ok());
         }
         return new Response(404, err("not_found", null));
+    }
+
+    private static byte[] decodeBearerToken(String s) {
+        if (s == null || s.isEmpty()) return null;
+        if (s.matches("^[0-9a-fA-F]{64}$")) {
+            byte[] out = new byte[32];
+            for (int i = 0; i < 32; i++) out[i] = (byte) Integer.parseInt(s.substring(i * 2, i * 2 + 2), 16);
+            return out;
+        }
+        try {
+            return LinkCrypto.unb64u(s);
+        } catch (IllegalArgumentException ignored) {
+        }
+        try {
+            return java.util.Base64.getDecoder().decode(s);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    /**
+     * Native Model Context Protocol (MCP) JSON-RPC 2.0 endpoint (/mcp and /v1/mcp) for Grok Bot, Claude,
+     * Hermes, and desktop MCP clients. Authenticated via OTV1 HMAC or Authorization: Bearer <paired-token>.
+     */
+    private Response mcp(JSONObject req) throws Exception {
+        Object id = req.has("id") ? req.get("id") : JSONObject.NULL;
+        String method = req.optString("method", "");
+        JSONObject params = req.optJSONObject("params");
+        if (params == null) params = new JSONObject();
+        JSONObject res = new JSONObject().put("jsonrpc", "2.0").put("id", id);
+        switch (method) {
+            case "initialize": {
+                JSONObject r = new JSONObject()
+                        .put("protocolVersion", "2024-11-05")
+                        .put("capabilities", new JSONObject().put("tools", new JSONObject()))
+                        .put("serverInfo", new JSONObject().put("name", "omarchytv-mcp").put("version", "2.12.0"));
+                return new Response(200, res.put("result", r));
+            }
+            case "notifications/initialized":
+            case "ping":
+                return new Response(200, res.put("result", new JSONObject()));
+            case "tools/list": {
+                JSONArray tools = new JSONArray()
+                        .put(mcpTool("tv_status", "Read OmarchyTV status, active theme, capabilities, and paired PCs.", new JSONObject()))
+                        .put(mcpTool("tv_list_themes", "List bundled MIT Omarchy themes and custom themes installed on the TV.", new JSONObject()))
+                        .put(mcpTool("tv_set_theme", "Switch the active Omarchy theme on the TV.",
+                                new JSONObject().put("name", new JSONObject().put("type", "string").put("description", "Theme slug (e.g. tokyo-night, jade-horse, hermarchy)"))))
+                        .put(mcpTool("tv_send_key", "Send a remote key to the TV (home, back, up, down, left, right, select, play_pause, volume_up, volume_down, mute).",
+                                new JSONObject().put("key", new JSONObject().put("type", "string").put("description", "Key name"))))
+                        .put(mcpTool("tv_list_apps", "List installed Android TV apps and WebApps.", new JSONObject()))
+                        .put(mcpTool("tv_launch_app", "Launch an Android TV app by package name.",
+                                new JSONObject().put("package", new JSONObject().put("type", "string").put("description", "Android package name"))))
+                        .put(mcpTool("tv_screensaver", "Set or reset custom ASCII screensaver text on the TV.",
+                                new JSONObject().put("text", new JSONObject().put("type", "string").put("description", "ASCII text (empty string resets to default)"))))
+                        .put(mcpTool("tv_ai_status", "Read live AI agents and PC stats displayed on OmarchyTV.", new JSONObject()));
+                return new Response(200, res.put("result", new JSONObject().put("tools", tools)));
+            }
+            case "tools/call": {
+                String name = params.optString("name", "");
+                final JSONObject args = params.optJSONObject("arguments") != null ? params.optJSONObject("arguments") : new JSONObject();
+                JSONObject out;
+                boolean isError = false;
+                switch (name) {
+                    case "tv_status":
+                        out = status();
+                        break;
+                    case "tv_list_themes":
+                        out = CustomThemes.list(host.wallpaperDir());
+                        break;
+                    case "tv_set_theme": {
+                        String tName = printable(args.optString("name", ""), 40);
+                        if (tName.isEmpty()) {
+                            out = err("bad_theme", "name is required");
+                            isError = true;
+                        } else {
+                            host.editConfig(j -> {
+                                JSONObject t = new JSONObject().put("name", tName).put("source", "tv");
+                                if (HEX_COLOR.matcher(args.optString("accent", "")).matches()) t.put("accent", args.optString("accent").toLowerCase(Locale.ROOT));
+                                if (HEX_COLOR.matcher(args.optString("accent2", "")).matches()) t.put("accent2", args.optString("accent2").toLowerCase(Locale.ROOT));
+                                j.put("theme", t);
+                                j.put("wallpaper_bg", 0);
+                            });
+                            out = ok().put("theme", tName);
+                        }
+                        break;
+                    }
+                    case "tv_send_key": {
+                        String key = args.optString("key", "");
+                        if (!KEYS.contains(key)) {
+                            out = err("bad_key", "unknown key: " + key);
+                            isError = true;
+                        } else {
+                            int code = host.key(key);
+                            out = code == 200 ? ok().put("key", key) : err("capability_missing", "cannot send " + key);
+                            isError = code != 200;
+                        }
+                        break;
+                    }
+                    case "tv_list_apps":
+                        out = new JSONObject().put("apps", host.apps());
+                        break;
+                    case "tv_launch_app": {
+                        String pkg = args.optString("package", "");
+                        boolean launched = pkg.matches("[A-Za-z0-9_.]{1,200}") && host.launch(pkg);
+                        out = launched ? ok().put("package", pkg) : err("no_such_app", "not installed");
+                        isError = !launched;
+                        break;
+                    }
+                    case "tv_screensaver": {
+                        Response sr = screensaver(new JSONObject().put("text", args.optString("text", "")));
+                        out = new JSONObject(new String(sr.body, StandardCharsets.UTF_8));
+                        isError = sr.status != 200;
+                        break;
+                    }
+                    case "tv_ai_status":
+                        out = new JSONObject().put("agents", agents()).put("stats", stats() != null ? stats() : JSONObject.NULL);
+                        break;
+                    default:
+                        return new Response(200, res.put("error", new JSONObject().put("code", -32601).put("message", "Unknown tool: " + name)));
+                }
+                JSONArray content = new JSONArray().put(new JSONObject().put("type", "text").put("text", out.toString()));
+                return new Response(200, res.put("result", new JSONObject().put("content", content).put("isError", isError)));
+            }
+            default:
+                return new Response(200, res.put("error", new JSONObject().put("code", -32601).put("message", "Method not found: " + method)));
+        }
+    }
+
+    private static JSONObject mcpTool(String name, String description, JSONObject props) throws JSONException {
+        return new JSONObject()
+                .put("name", name)
+                .put("description", description)
+                .put("inputSchema", new JSONObject().put("type", "object").put("properties", props));
     }
 
     // ---- cast (§6 Cast) ------------------------------------------------------------------------------
@@ -943,7 +1097,8 @@ public final class LinkServer {
             if (caps0 == null) st.put("capabilities", caps0 = new JSONArray());
             caps0.put("agents");
             caps0.put("themes");
-            caps0.put("banners");   // v-next: PUT/DELETE /v1/banners/<package> (PNG), GET /v1/banners   // v2.10.1: PUT/DELETE /v1/themes/<name>, GET /v1/themes, POST /v1/themes/<name>/select   // §6 Agents: PUT/GET /v1/agents, agent_activity, agent_ask
+            caps0.put("banners");
+            caps0.put("mcp");   // v-next: PUT/DELETE /v1/banners/<package> (PNG), GET /v1/banners   // v2.10.1: PUT/DELETE /v1/themes/<name>, GET /v1/themes, POST /v1/themes/<name>/select   // §6 Agents: PUT/GET /v1/agents, agent_activity, agent_ask
             List<String> kinds = host.castKinds();
             if (kinds != null && !kinds.isEmpty()) {
                 JSONArray caps = st.optJSONArray("capabilities");

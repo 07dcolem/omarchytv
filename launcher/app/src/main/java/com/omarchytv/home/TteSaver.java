@@ -77,10 +77,12 @@ final class TteSaver {
         LauncherConfig cfg = LauncherConfig.get(c);
         final String color = String.format(Locale.ROOT, "#%06x", cfg.accent & 0xFFFFFF);
         final String exclude = exclude(c);
+        final String speed = cfg.screensaverSpeed;
         w.addJavascriptInterface(new Object() {
             @JavascriptInterface public String text() { return text; }
             @JavascriptInterface public String color() { return color; }
             @JavascriptInterface public String exclude() { return exclude; }
+            @JavascriptInterface public String speed() { return speed; }
             @JavascriptInterface public double widthFraction() { return 0.65; }
             /** The page saw n lit pixels in the effect canvas: check the screen shows them too. */
             @JavascriptInterface public void canvasLit(int n) {
