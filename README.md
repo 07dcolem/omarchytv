@@ -2,7 +2,7 @@
 
 **An Omarchy-style home screen for Android TV, featuring a native Omarchy TUI Grok Bot assistant, 26 MIT themes with 4K wallpapers, a desktop link to your Omarchy PC / Mac, a native MCP server, and an Android smartphone wireless installer.**
 
-Created by **[Marco Porro](https://marcoporro.it)** ([@MarcoPorro](https://x.com/MarcoPorro) · [marcoporro.it](https://marcoporro.it))
+Created by **[Marco Porro](https://www.marcoporro.it)** ([X: @MarcoPorro](https://x.com/MarcoPorro) · [www.marcoporro.it](https://www.marcoporro.it))
 
 Published: **25 October 2026 (beta)** · Version **2.12.0-beta** (`versionCode 20` — Android TV, PC/Mac Plugin & Mobile Companion) / **2.11.0-testing** (LG webOS experimental) · License **MIT**
 
@@ -276,4 +276,4 @@ Third-party wallpapers whose licence could not be verified are **not** included.
 
 ## License
 MIT, see [LICENSE](LICENSE).
-Copyright (c) 2026 Marco Porro ([@MarcoPorro](https://x.com/MarcoPorro) · [https://marcoporro.it](https://marcoporro.it)).
+Copyright (c) 2026 Marco Porro ([X: @MarcoPorro](https://x.com/MarcoPorro) · [https://www.marcoporro.it](https://www.marcoporro.it)).

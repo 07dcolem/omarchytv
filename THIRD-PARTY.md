@@ -8,7 +8,7 @@ Audit date: 2026-10-25. Per-background provenance: `launcher/WALLPAPER-PROVENANC
 ## 1. Project origin & inspiration
 | Item | Author | Source | Licence | Notes |
 |---|---|---|---|---|
-| OmarchyTV (`com.omarchytv.home`, `pc-plugin/`, `mobile-companion/`, `webos/`) | [Marco Porro](https://marcoporro.it) ([@MarcoPorro](https://x.com/MarcoPorro)) | https://gitlab.com/piermark/omarchytv | MIT, `LICENSE` (`Copyright (c) 2026 Marco Porro (@MarcoPorro · https://marcoporro.it)`) | Original work and sole copyright of Marco Porro. |
+| OmarchyTV (`com.omarchytv.home`, `pc-plugin/`, `mobile-companion/`, `webos/`) | [Marco Porro](https://www.marcoporro.it) ([X: @MarcoPorro](https://x.com/MarcoPorro)) | https://gitlab.com/piermark/omarchytv | MIT, `LICENSE` (`Copyright (c) 2026 Marco Porro (X: @MarcoPorro · https://www.marcoporro.it)`) | Original work and sole copyright of Marco Porro. |
 | tv-vibehack / cleanyourtv (inspiration) | Gathin (Gathin23) | https://github.com/Gathin23/tv-vibehack (renamed cleanyourtv) | MIT | Inspired by tv-vibehack by Gathin; no copyright claimed over OmarchyTV. |
 | Free My TV (`LocalAdb.java` port of `Adb.java`; watchdog and home-mode ideas) | Free My TV contributors | https://github.com/simbasjungles/free-my-tv | MIT, `licenses/FREE-MY-TV-MIT.txt` | Ported to the launcher's package, adapted to its config. |
 
@@ -69,7 +69,7 @@ Any of them can be re-added once the author confirms a redistributable licence; 
 - No Stack Overflow or other copied snippets were found in the sources (searched for "adapted/based on/copied").
 
 ## 7. Omarchy PC plugin and omarchy-link
-`pc-plugin/omarchy-tv` and `pc-plugin/omarchy-link` are by [Marco Porro](https://marcoporro.it) ([@MarcoPorro](https://x.com/MarcoPorro)), MIT (pc-plugin/LICENSE, pc-plugin/NOTICE). Python standard library only. Themes/colours read at runtime
+`pc-plugin/omarchy-tv` and `pc-plugin/omarchy-link` are by [Marco Porro](https://www.marcoporro.it) ([X: @MarcoPorro](https://x.com/MarcoPorro)), MIT (pc-plugin/LICENSE, pc-plugin/NOTICE). Python standard library only. Themes/colours read at runtime
 from the user's Omarchy install (not redistributed). If published, the plugin must carry this file's Omarchy credit.
 
 ## 8. Trademarks

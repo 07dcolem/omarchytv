@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- OmarchyTV home (Copyright (c) 2026 Marco Porro (@MarcoPorro · https://marcoporro.it), MIT): WallpaperView, Waybar-style top bar
+<!-- OmarchyTV home (Copyright (c) 2026 Marco Porro (X: @MarcoPorro · https://www.marcoporro.it), MIT): WallpaperView, Waybar-style top bar
      (workspaces / clock / modules), wordmark, panels, and app grid. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/root"
