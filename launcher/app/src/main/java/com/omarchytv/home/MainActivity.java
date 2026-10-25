@@ -155,7 +155,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
         }
         density = getResources().getDisplayMetrics().density;
         COLUMNS = LauncherConfig.get(this).columns;   // Layout → App size (4 / 5 / 6 / 7 per row)
-        liveTvPkg = getString(R.string.live_tv_package).trim();
+        liveTvPkg = liveTvPackage(this);
 
         root = findViewById(R.id.root);
         glass = findViewById(R.id.glass);
@@ -442,8 +442,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
     /** OK lungo on an app tile (home row or workspace 3): Sposta / Nascondi. The TV tile never gets here. */
     private void appTileMenu(int position, View anchor) {
         if (home.movingApp >= 0 || position < 0 || position >= adapter.getItemCount()) return;
-        String key = adapter.keyAt(position);
-        if (key == null) return;
+        String pkg = adapter.packageAt(position);
+        if (pkg == null) return;
         if (menu != null && menu.isShowing()) menu.dismiss();
         menu = new AsciiMenu(this, 300);
         AsciiMenu.Page p = new AsciiMenu.Page(adapter.labelAt(position));
@@ -457,7 +457,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
         p.add(str(R.string.ctx_hide), null, r -> {
             LauncherConfig.update(this, j -> {
                 List<String> list = new ArrayList<>(LauncherConfig.get(this).hidden);
-                if (!list.contains(key)) list.add(key);
+                if (!list.contains(pkg)) list.add(pkg);
                 j.put("hidden", LauncherConfig.array(list));
             });
             builtWith = LauncherConfig.get(this);
@@ -466,6 +466,20 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
             home.post(home::focusDefault);
             return false;
         });
+        LauncherConfig.WebApp webApp = adapter.webAt(position);
+        if (webApp != null) {
+            p.add(str(R.string.web_remove), null, r -> {
+                removeWebApp(webApp.id);
+                home.bind(builtWith, adapter);
+                home.post(home::focusDefault);
+                return false;
+            });
+        } else {
+            p.add(str(R.string.ctx_info), null, r -> {
+                AppAdapter.openAppInfo(this, pkg);
+                return false;
+            });
+        }
         menu.showBelow(anchor, p);
     }
 
@@ -557,6 +571,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
                 break;
             case "screensaver":
                 showMenu("screensaver", null);
+                break;
+            case "hidden":
+                showMenu("hidden", null);
+                break;
+            case "grok-bot":
+                showMenu("grok-bot", null);
+                break;
+            case "ask":
+                open(new Intent(this, AskActivity.class));
+                break;
+            case "agents":
+                open(new Intent(this, AgentActivity.class));
                 break;
             case "about":
                 showAbout();
@@ -685,6 +711,24 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
             items.add(new Walker.Item(adapter.labelAt(i), tApp, () -> adapter.launchAt(pos)));
         }
         LauncherConfig cfg = LauncherConfig.get(this);
+        java.util.Set<String> seenNames = new java.util.HashSet<>();
+        for (Walker.Item it : items) seenNames.add(it.name.toLowerCase(java.util.Locale.ROOT));
+        for (LauncherConfig.WebApp w : LauncherConfig.BUILTIN_AI_WEBAPPS) {
+            final LauncherConfig.WebApp fw = w;
+            if ("grok-bot".equals(w.id)) {
+                if (!seenNames.contains(w.name.toLowerCase(java.util.Locale.ROOT))) {
+                    items.add(new Walker.Item(w.name, tApp, () -> AskActivity.open(this)));
+                }
+                items.add(new Walker.Item("Grok Web (grok.com)", tApp, () -> WebAppActivity.open(this, fw)));
+                continue;
+            }
+            if (!seenNames.contains(w.name.toLowerCase(java.util.Locale.ROOT))) {
+                items.add(new Walker.Item(w.name, tApp, () -> WebAppActivity.open(this, fw)));
+            }
+        }
+        items.add(new Walker.Item("> grok bot", str(R.string.grok_bot_hub), () -> open(new Intent(this, AskActivity.class))));
+        items.add(new Walker.Item(str(R.string.ask_entry), str(R.string.grok_bot_hub), () -> open(new Intent(this, AskActivity.class))));
+        items.add(new Walker.Item(str(R.string.grok_bot_hub), str(R.string.v29_type_settings), () -> handler.post(() -> showMenu("grok-bot", null))));
         if (cfg.shortcutsOn) for (LauncherConfig.Shortcut x : cfg.shortcuts) items.add(new Walker.Item(x.label, str(R.string.v29_type_content), () -> onShortcutClick(x)));
         if (cfg.tvEnabled) items.add(new Walker.Item(str(R.string.tv_tile), str(R.string.v29_type_content), this::onTvClick));
         items.add(new Walker.Item("Wi-Fi: " + currentNetworkName(), str(R.string.v29_type_wifi), () -> open(new Intent(Settings.ACTION_WIFI_SETTINGS))));
@@ -827,6 +871,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
         resumed = true;
         OmarchyLink.setHomeVisible(true);
         hideSaver();   // back from the screensaver window (own process)
+        Theme.apply(getWindow().getDecorView());
         ((WallpaperView) findViewById(R.id.wallpaper)).refreshIfChanged();
         platesSig = "";
         resetIdle();
@@ -1383,6 +1428,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
             case "tv": return tvPage();
             case "webapps": return webAppsPage();
             case "assistant": return assistantPage();
+            case "grok-bot": return grokBotPage();
             default: return null;
         }
     }
@@ -1393,6 +1439,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
                     handler.post(this::startVoiceSearch);
                     return false;
                 })
+                .add(str(R.string.grok_bot_hub), "›", r -> push(grokBotPage()))
                 .add(str(R.string.ask_entry), "›", r -> {
                     open(new Intent(this, AskActivity.class));
                     return false;
@@ -1736,9 +1783,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
 
     /** v2.10: every bundled Omarchy theme (like the PC's theme menu), then its backgrounds. */
     private AsciiMenu.Page themesPage() {
+        LauncherConfig cfg = LauncherConfig.get(this);
         AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.v210_sys_themes));
-        String lBg = str(R.string.menu_wallpaper);
+        String lBg = str(R.string.menu_wallpaper), lSync = str(R.string.wp_sync_pc);
         p.add(lBg, "›", r -> push(wallpaperPage()));
+        p.add(lSync, str(cfg.syncPcWallpaper ? R.string.on : R.string.off), r -> {
+            boolean n = !cfg.syncPcWallpaper;
+            applyLive("themes", lSync, j -> j.put("syncPcWallpaper", n));
+            return true;
+        });
         for (String n : Theme.names(this)) {
             p.add(n, n.equals(Theme.cur().name) ? str(R.string.mark_current) : "", r -> {
                 applyLive("themes", n, j -> {
@@ -1800,6 +1853,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
             applyLive("wallpaper", str(R.string.wp_procedural), j -> j.put("wallpaper", "procedural"));
             return true;
         });
+        String lSync = str(R.string.wp_sync_pc);
+        p.add(lSync, str(cfg.syncPcWallpaper ? R.string.on : R.string.off), r -> {
+            boolean n = !cfg.syncPcWallpaper;
+            applyLive("wallpaper", lSync, j -> j.put("syncPcWallpaper", n));
+            return true;
+        });
         return p;
     }
 
@@ -1827,6 +1886,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
         p.add(lSize, sizeLabel(cfg.screensaverSize), r -> {
             String n = next(sizes, cfg.screensaverSize);
             applyLive("screensaver", lSize, j -> screensaver(j).put("size", n));
+            return true;
+        });
+        String[] speeds = {"slow", "normal", "fast"};
+        String lSpeed = str(R.string.ss_speed);
+        p.add(lSpeed, speedLabel(cfg.screensaverSpeed), r -> {
+            String n = next(speeds, cfg.screensaverSpeed);
+            applyLive("screensaver", lSpeed, j -> screensaver(j).put("speed", n));
             return true;
         });
         p.add(lClock, str(cfg.screensaverClock ? R.string.on : R.string.off), r -> {
@@ -1989,6 +2055,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
         p.onLeave = () -> {
             if (!linkRefreshing) menuPage = null;
         };
+        p.add(str(R.string.grok_bot_hub), "›", r -> push(grokBotPage()));
         String lOff = str(R.string.ai_offline_row);
         p.add(lOff, str("hide".equals(cfg.aiOffline) ? R.string.ai_offline_hide : R.string.ai_offline_stale), r -> {
             String n = "hide".equals(cfg.aiOffline) ? "stale" : "hide";
@@ -2068,15 +2135,24 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
         LauncherConfig cfg = LauncherConfig.get(this);
         AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.set_hidden));
         if (cfg.hidden.isEmpty()) p.add(str(R.string.hidden_none), null, r -> true);
-        for (String pkg : cfg.hidden) {
-            String label = pkg;
-            try {
-                label = String.valueOf(getPackageManager().getApplicationLabel(getPackageManager().getApplicationInfo(pkg, 0)));
-            } catch (Exception ignored) {
+        for (String raw : cfg.hidden) {
+            String basePkg = raw.contains("/") ? raw.substring(0, raw.indexOf('/')) : raw;
+            String label = basePkg;
+            if (raw.startsWith("web:")) {
+                String wid = raw.substring(4);
+                LauncherConfig.WebApp bw = LauncherConfig.findBuiltinAiWebApp(wid);
+                label = bw != null ? bw.name : wid;
+                for (LauncherConfig.WebApp w : cfg.webapps) if (w.id.equals(wid)) label = w.name;
+            } else {
+                try {
+                    label = String.valueOf(getPackageManager().getApplicationLabel(getPackageManager().getApplicationInfo(basePkg, 0)));
+                } catch (Exception ignored) {
+                }
             }
             p.add(label, str(R.string.unhide), r -> {
                 List<String> list = new ArrayList<>(cfg.hidden);
-                list.remove(pkg);
+                list.remove(raw);
+                list.remove(basePkg);
                 applyLive("hidden", null, j -> j.put("hidden", LauncherConfig.array(list)));
                 return true;
             });
@@ -2093,6 +2169,64 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
 
     private String sizeLabel(String s) {
         return str("small".equals(s) ? R.string.size_small : "large".equals(s) ? R.string.size_large : R.string.size_medium);
+    }
+
+    private String speedLabel(String s) {
+        return str("slow".equals(s) ? R.string.speed_slow : "fast".equals(s) ? R.string.speed_fast : R.string.speed_normal);
+    }
+
+    /**
+     * Grok Bot & AI hub: works like Omarchy on desktop — open Grok Bot (or Grok / ChatGPT / Claude / Hermes)
+     * directly in WebAppActivity (:web process with persistent cookies/DOM storage & D-pad cursor), or use
+     * paired PC "> ask" / "> agents" and the TV MCP server (:47800/mcp).
+     */
+    private AsciiMenu.Page grokBotPage() {
+        AsciiMenu.Page p = new AsciiMenu.Page(str(R.string.grok_bot_hub));
+        LauncherConfig.WebApp grokBot = LauncherConfig.BUILTIN_AI_WEBAPPS[0];
+        p.add("Grok Bot (Omarchy TUI)", "tui ›", r -> {
+            LauncherConfig.update(this, j -> LauncherConfig.ensureWebApp(j, grokBot, true));
+            builtWith = LauncherConfig.get(this);
+            reloadApps();
+            if (home != null) home.bind(builtWith, adapter);
+            AskActivity.open(this);
+            return false;
+        });
+        p.add(str(R.string.grok_bot_open), "grok.com ›", r -> {
+            LauncherConfig.update(this, j -> LauncherConfig.ensureWebApp(j, grokBot, true));
+            builtWith = LauncherConfig.get(this);
+            reloadApps();
+            if (home != null) home.bind(builtWith, adapter);
+            WebAppActivity.open(this, grokBot);
+            return false;
+        });
+        p.add("> agents", OmarchyLink.connected() ? "pc ›" : "›", r -> {
+            open(new Intent(this, AgentActivity.class));
+            return false;
+        });
+        for (int i = 1; i < LauncherConfig.BUILTIN_AI_WEBAPPS.length; i++) {
+            final LauncherConfig.WebApp w = LauncherConfig.BUILTIN_AI_WEBAPPS[i];
+            String host = android.net.Uri.parse(w.url).getHost();
+            p.add(w.name, (host == null ? "" : host) + " ›", r -> {
+                LauncherConfig.update(this, j -> LauncherConfig.ensureWebApp(j, w, false));
+                builtWith = LauncherConfig.get(this);
+                reloadApps();
+                if (home != null) home.bind(builtWith, adapter);
+                WebAppActivity.open(this, w);
+                return false;
+            });
+        }
+        p.add(str(R.string.grok_bot_pin_all), "+", r -> {
+            applyLive("grok-bot", str(R.string.grok_bot_pin_all), j -> {
+                for (int i = 0; i < LauncherConfig.BUILTIN_AI_WEBAPPS.length; i++) {
+                    LauncherConfig.ensureWebApp(j, LauncherConfig.BUILTIN_AI_WEBAPPS[i], i < 2);
+                }
+            });
+            return true;
+        });
+        String ip = tvAddress();
+        p.add(str(R.string.grok_bot_mcp), (ip != null ? ip : "127.0.0.1") + ":" + LINK_PORT + "/mcp", r -> true);
+        p.add(str(R.string.ask_settings), "›", r -> push(assistantPage()));
+        return p;
     }
 
     private String logoLabel(String l) {
@@ -2908,11 +3042,35 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
      * last channel watched. Falls back to any Live TV handler (TvContract.Channels content). Null when the
      * TV has neither (e.g. an emulator or a box without a tuner).
      */
+    /** Detects the installed Live TV package from config.xml (Sony, Sharp AQUOS, Google TV, Android TV, etc.). */
+    static String liveTvPackage(Context c) {
+        PackageManager pm = c.getPackageManager();
+        List<String> candidates = new ArrayList<>();
+        String primary = c.getString(R.string.live_tv_package).trim();
+        if (!primary.isEmpty()) candidates.add(primary);
+        for (String pkg : c.getResources().getStringArray(R.array.live_tv_packages)) {
+            pkg = pkg.trim();
+            if (!pkg.isEmpty() && !candidates.contains(pkg)) candidates.add(pkg);
+        }
+        for (String pkg : candidates) {
+            try {
+                pm.getPackageInfo(pkg, 0);
+                return pkg;
+            } catch (PackageManager.NameNotFoundException ignored) {
+            }
+        }
+        return primary;
+    }
+
     private Intent liveTvIntent() {
         PackageManager pm = getPackageManager();
         if (!liveTvPkg.isEmpty()) {
             Intent i = pm.getLeanbackLaunchIntentForPackage(liveTvPkg);
             if (i == null) i = pm.getLaunchIntentForPackage(liveTvPkg);
+            if (i == null) {
+                Intent tvAct = new Intent(Intent.ACTION_MAIN).setClassName(liveTvPkg, liveTvPkg + ".TvActivity");
+                if (tvAct.resolveActivity(pm) != null) i = tvAct;
+            }
             if (i != null) return i;
         }
         Intent any = new Intent(Intent.ACTION_VIEW, TvContract.Channels.CONTENT_URI);

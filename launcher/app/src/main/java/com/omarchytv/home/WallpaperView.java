@@ -47,7 +47,7 @@ public class WallpaperView extends View {
     private long scrimKey() {
         LauncherConfig cfg = LauncherConfig.get(getContext());
         return ((long) cfg.transparency << 40) ^ ((long) cfg.wallpaperDim.hashCode() << 20) ^ (cfg.accent & 0xFFFFFFFFL)
-                ^ ((long) Theme.cur().name.hashCode() << 8) ^ ((long) cfg.wallpaperBg << 52);
+                ^ ((long) Theme.cur().name.hashCode() << 8) ^ ((long) cfg.wallpaperBg << 52) ^ (cfg.syncPcWallpaper ? (1L << 58) : 0L);
     }
 
     /** Rebuilds when the wallpaper image changed on disk (e.g. pushed again by adb or Omarchy Link). */
@@ -88,10 +88,12 @@ public class WallpaperView extends View {
 
     private Bitmap make(int w, int h) {
         float density = getResources().getDisplayMetrics().density;
-        String which = LauncherConfig.get(getContext()).wallpaper;
-        boolean custom = which.startsWith("/");
-        builtFrom = which;
-        builtMtime = custom ? new java.io.File(which).lastModified() : 0L;
+        LauncherConfig cfg = LauncherConfig.get(getContext());
+        String rawWhich = cfg.wallpaper;
+        boolean custom = rawWhich.startsWith("/") && cfg.syncPcWallpaper && new java.io.File(rawWhich).isFile();
+        String which = (rawWhich.startsWith("/") && !custom) ? "omarchy" : rawWhich;
+        builtFrom = rawWhich;
+        builtMtime = custom ? new java.io.File(rawWhich).lastModified() : 0L;
         builtScrim = scrimKey();
         buildId++;
         // v2.10: each Omarchy theme ships its Omarchy-original wordmark background (third-party art excluded, see THIRD-PARTY.md) in assets/wallpapers/<theme>/ (3840x2160 WebP).
@@ -207,8 +209,16 @@ public class WallpaperView extends View {
 
     private Bitmap decodeAsset(String asset, android.graphics.BitmapFactory.Options o) {
         try (java.io.InputStream in = getContext().getAssets().open(asset)) {
-            return android.graphics.BitmapFactory.decodeStream(in, null, o);
-        } catch (java.io.IOException e) {
+            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[16384];
+            int n;
+            while ((n = in.read(buf)) != -1) bos.write(buf, 0, n);
+            byte[] raw = bos.toByteArray();
+            if (raw.length >= 4 && raw[0] == 'U' && raw[1] == 'k' && raw[2] == 'l' && raw[3] == 'G') {
+                raw = android.util.Base64.decode(raw, android.util.Base64.DEFAULT);
+            }
+            return android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.length, o);
+        } catch (Exception e) {
             return null;
         }
     }
