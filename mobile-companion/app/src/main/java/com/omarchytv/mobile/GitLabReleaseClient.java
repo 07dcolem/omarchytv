@@ -23,6 +23,7 @@ import java.util.regex.Pattern;
  */
 public final class GitLabReleaseClient {
 
+    public static final String GITLAB_PROJECT_ID = "87958120";
     public static final String GITLAB_RELEASES_URL =
             "https://gitlab.com/api/v4/projects/87958120/releases";
     public static final String GITHUB_RELEASES_URL =
@@ -300,7 +301,7 @@ public final class GitLabReleaseClient {
 
         if (downloadUrl.isEmpty() && desc != null && !desc.isEmpty()) {
             String ext = wantWebOsIpk ? ".ipk" : ".apk";
-            Matcher um = Pattern.compile("(https://gitlab\.com/[^\\s)"']+uploads/[0-9a-fA-F]{32}/([^\\s)"'/]+" + Pattern.quote(ext) + "))").matcher(desc);
+            Matcher um = Pattern.compile("(https://gitlab\\.com/[^\\s)\"']+uploads/[0-9a-fA-F]{32}/([^\\s)\"'/]+" + Pattern.quote(ext) + "))").matcher(desc);
             while (um.find()) {
                 String candidateUrl = normalizeGitLabUploadUrl(um.group(1));
                 String candidateName = um.group(2);
@@ -320,9 +321,9 @@ public final class GitLabReleaseClient {
                 downloadUrl = "https://gitlab.com/piermark/omarchytv/-/releases/" + tag
                         + "/downloads/omarchytv-webos-2.11.0-testing.ipk";
             } else if (!wantWebOsIpk && !isWebOsTag && !tag.isEmpty()) {
-                assetName = "omarchytv-release-2.11.0.apk";
+                assetName = "omarchytv-release-2.12.0-beta.apk";
                 downloadUrl = "https://gitlab.com/piermark/omarchytv/-/raw/" + tag
-                        + "/omarchytv-release-2.11.0.apk";
+                        + "/omarchytv-release-2.12.0-beta.apk";
             }
         }
 
@@ -378,7 +379,7 @@ public final class GitLabReleaseClient {
                 assetName = "omarchytv-webos-2.11.0-testing.ipk";
                 downloadUrl = "https://github.com/piermark/omarchytv/releases/download/" + tag + "/" + assetName;
             } else if (!wantWebOsIpk && !isWebOsTag && !tag.isEmpty()) {
-                assetName = "omarchytv-release-2.11.0.apk";
+                assetName = "omarchytv-release-2.12.0-beta.apk";
                 downloadUrl = "https://github.com/piermark/omarchytv/releases/download/" + tag + "/" + assetName;
             }
         }
@@ -446,7 +447,7 @@ public final class GitLabReleaseClient {
             conn.setInstanceFollowRedirects(true);
             conn.setConnectTimeout(timeoutMs);
             conn.setReadTimeout(timeoutMs);
-            conn.setRequestProperty("User-Agent", "OmarchyTV-Mobile/2.11.0 (Android; Linux)");
+            conn.setRequestProperty("User-Agent", "OmarchyTV-Mobile/2.12.0 (Android; Linux)");
             conn.setRequestProperty("Accept", "application/json, */*");
             int code = conn.getResponseCode();
             if (code == HttpURLConnection.HTTP_MOVED_PERM

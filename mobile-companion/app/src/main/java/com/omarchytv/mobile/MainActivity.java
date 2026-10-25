@@ -115,7 +115,7 @@ public final class MainActivity extends Activity {
         setContentView(rootLayout);
 
         String phoneIp = OmarchyLinkClient.detectLocalIpv4();
-        appendLog("omarchy-mobile 2.11.0 ready | Phone LAN: " + phoneIp + ":8765");
+        appendLog("omarchy-mobile 2.12.0 ready | Phone LAN: " + phoneIp + ":8765");
         appendLog("WebTV & webOS Bridge active at http://" + phoneIp + ":8765/tv");
         switchTab(TAB_LINK);
     }
@@ -204,7 +204,7 @@ public final class MainActivity extends Activity {
         topBarLeft.setTypeface(monoBold);
         topBarLeft.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         topBarLeft.setTextColor(currentTheme.accentColor());
-        topBarLeft.setText("▊ OMARCHY-MOBILE 2.11.0-beta");
+        topBarLeft.setText("▊ OMARCHY-MOBILE 2.12.0-beta");
         LinearLayout.LayoutParams lpLeft = new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         topBar.addView(topBarLeft, lpLeft);
@@ -525,7 +525,7 @@ public final class MainActivity extends Activity {
         // Android TV 1-Tap Wireless ADB Installer
         TuiBoxView apkBox = makeBox("ANDROID TV WIRELESS ADB INSTALLER (:5555)");
         apkBox.addView(makeLabel(
-                "1. Downloads latest omarchytv-release-2.11.0.apk & verifies SHA-256\n"
+                "1. Downloads latest omarchytv-release-2.12.0-beta.apk & verifies SHA-256\n"
                         + "2. Pushes via pure-Java ADB SYNC to /data/local/tmp/omarchytv.apk\n"
                         + "3. Runs `pm install -r` & pins default Home (`com.omarchytv.launcher/.HomeV29`)",
                 10.5f, currentTheme.fgColor()));
