@@ -1,6 +1,6 @@
 # OmarchyTV Launcher (`com.omarchytv.home`)
 
-An Omarchy desktop-styled home screen for Android TV (`Copyright (c) 2026 Marco Porro (X: @MarcoPorro · https://www.marcoporro.it)`, MIT). Inspired by `tv-vibehack` by Gathin.
+An Omarchy desktop-styled home screen for Android TV (`Copyright (c) 2026 Marco Porro (x.com/MarcoPorro · www.marcoporro.it)`, MIT). Inspired by `tv-vibehack` by Gathin.
 
 **Package:** `com.omarchytv.home`.
 `minSdk 26` (Android 8.0), `targetSdk 29`, compileSdk 34.
@@ -560,4 +560,4 @@ step can be undone with `tools/restore.sh`.
   the LAN (each new client still needs on-screen approval). Without it the toggle opens the home
   picker and points to `tools/restore.sh` — a plain app cannot re-enable a disabled launcher.
 - `examples/sony-kd55xe9005/debloat.txt`: a tested 27-package example list (default for this TV).
-- Credits: see root `THIRD-PARTY.md` and `NOTICE` (`Copyright (c) 2026 Marco Porro (X: @MarcoPorro · https://www.marcoporro.it)`, MIT; Free My TV MIT).
+- Credits: see root `THIRD-PARTY.md` and `NOTICE` (`Copyright (c) 2026 Marco Porro (x.com/MarcoPorro · www.marcoporro.it)`, MIT; Free My TV MIT).
