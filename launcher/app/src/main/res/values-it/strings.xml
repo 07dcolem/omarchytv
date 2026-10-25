@@ -307,4 +307,13 @@
     <string name="v210_arrange">Disponi riquadri</string>
     <string name="v210_arrange_hint">◀▶▲▼ sposta · OK salva · Indietro annulla</string>
     <string name="v210_arrange_reset">Ripristina posizioni</string>
+    <string name="ss_speed">Velocità effetto</string>
+    <string name="speed_slow">lenta</string>
+    <string name="speed_normal">normale</string>
+    <string name="speed_fast">veloce</string>
+    <string name="wp_sync_pc">Sincronizza sfondo PC</string>
+    <string name="grok_bot_hub">Grok Bot e AI</string>
+    <string name="grok_bot_open">Grok Bot (WebApp)</string>
+    <string name="grok_bot_pin_all">Aggiungi WebApp AI su Home</string>
+    <string name="grok_bot_mcp">Server MCP (/mcp)</string>
 </resources>
