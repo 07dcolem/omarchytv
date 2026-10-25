@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -160,10 +161,14 @@ public final class CastViewActivity extends Activity implements CastRouter.Surfa
 
     private static byte[] fetch(String url) throws IOException {
         if (url == null) throw new IOException("no url");
+        // Cleartext is permitted app-wide for LAN web apps (network_security_config.xml): http:// only to the LAN here too.
+        Uri u = Uri.parse(url);
+        boolean https = "https".equals(u.getScheme());
+        if (!https && !LanHttpDataSource.allowed(u)) throw new IOException("http:// only on the LAN");
         HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
         c.setConnectTimeout(10_000);
         c.setReadTimeout(15_000);
-        c.setInstanceFollowRedirects(true);   // HttpURLConnection never follows a redirect to another scheme
+        c.setInstanceFollowRedirects(https);   // never follows a redirect to another scheme; a LAN http:// URL none at all
         c.setRequestProperty("User-Agent", "OmarchyTV");
         try (InputStream in = c.getInputStream()) {
             if (c.getContentLengthLong() > IMAGE_MAX) throw new IOException("too large");
