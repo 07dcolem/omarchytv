@@ -22,6 +22,16 @@
 
     <!-- The TV's Live TV / tuner app, offered at the end of the Inputs menu. Leave empty to omit. -->
     <string name="live_tv_package" translatable="false">com.sony.dtv.tvx</string>
+    <string-array name="live_tv_packages">
+        <item>com.sony.dtv.tvx</item>
+        <item>jp.co.sharp.av.android.aquostvapp</item>
+        <item>com.google.android.tv</item>
+        <item>com.android.tv</item>
+        <item>org.dtvkit.inputsource</item>
+        <item>com.tcl.tv</item>
+        <item>com.hisense.tv.livetv</item>
+        <item>com.philips.tv.tvapp</item>
+    </string-array>
     <!-- Xiaomi / MediaTek sets: com.mediatek.wwtv.tvcenter -->
 
     <!-- Tiles per row in the grid; the dock always has this many slots. -->
