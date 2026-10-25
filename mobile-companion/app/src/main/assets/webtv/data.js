@@ -1,6 +1,6 @@
 window.OMARCHY_DATA = {
-  "version": "2.11.0-testing",
-  "basedOnAndroidVersion": "2.11.0",
+  "version": "2.12.0-beta",
+  "basedOnAndroidVersion": "2.12.0",
   "themes": {
     "catppuccin": {
       "accent": "#89b4fa",
@@ -170,6 +170,62 @@ window.OMARCHY_DATA = {
       "red": "#50f872",
       "selection": "#1f253a",
       "yellow": "#50f7d4"
+    },
+    "hermarchy": {
+      "accent": "#61d6ff",
+      "background": "#08090a",
+      "blue": "#74a8c7",
+      "bright_blue": "#94bcd2",
+      "bright_cyan": "#8de4ff",
+      "bright_foreground": "#ffffff",
+      "bright_green": "#a5e4ae",
+      "bright_magenta": "#cebdda",
+      "bright_red": "#f08a8a",
+      "bright_yellow": "#ecd69a",
+      "brown": "#a58a76",
+      "cyan": "#61d6ff",
+      "dark_background": "#08090a",
+      "dark_foreground": "#606468",
+      "darker_background": "#050607",
+      "foreground": "#f1f1ec",
+      "green": "#86d993",
+      "light_foreground": "#f1f1ec",
+      "lighter_background": "#101214",
+      "magenta": "#b7a1c7",
+      "mode": "dark",
+      "muted": "#606468",
+      "orange": "#d89b6a",
+      "red": "#e46e6e",
+      "selection": "#26333a",
+      "yellow": "#e2c275"
+    },
+    "jade-horse": {
+      "accent": "#8bcbb1",
+      "background": "#142620",
+      "blue": "#96b7d0",
+      "bright_blue": "#b0cde3",
+      "bright_cyan": "#a2dcda",
+      "bright_foreground": "#f0faf4",
+      "bright_green": "#a7dfc5",
+      "bright_magenta": "#cfbce0",
+      "bright_red": "#e6a6aa",
+      "bright_yellow": "#dce1ac",
+      "brown": "#7e8970",
+      "cyan": "#86c7c5",
+      "dark_background": "#0f1e19",
+      "dark_foreground": "#91ad9f",
+      "darker_background": "#0a1713",
+      "foreground": "#dfede5",
+      "green": "#8bcbb1",
+      "light_foreground": "#bed6c9",
+      "lighter_background": "#203b31",
+      "magenta": "#b7a1c8",
+      "mode": "dark",
+      "muted": "#64887b",
+      "orange": "#d2ab8d",
+      "red": "#d88d91",
+      "selection": "#2b5147",
+      "yellow": "#c5cc91"
     },
     "kanagawa": {
       "accent": "#dcd7ba",
@@ -555,6 +611,34 @@ window.OMARCHY_DATA = {
       "red": "#2a2a2a",
       "selection": "#c0c0c0",
       "yellow": "#4a4a4a"
+    },
+    "year-of-the-horse": {
+      "accent": "#e5ce78",
+      "background": "#26151f",
+      "blue": "#a1afd3",
+      "bright_blue": "#bcc9e5",
+      "bright_cyan": "#acd3d0",
+      "bright_foreground": "#fff5f5",
+      "bright_green": "#bfd2ad",
+      "bright_magenta": "#dfb9dc",
+      "bright_red": "#ee92a3",
+      "bright_yellow": "#f2dfa0",
+      "brown": "#926775",
+      "cyan": "#91bdbb",
+      "dark_background": "#1e1018",
+      "dark_foreground": "#b18a9c",
+      "darker_background": "#170b12",
+      "foreground": "#eee6e9",
+      "green": "#a5bd96",
+      "light_foreground": "#d4c7ce",
+      "lighter_background": "#39202e",
+      "magenta": "#c89fca",
+      "mode": "dark",
+      "muted": "#8e687d",
+      "orange": "#da957b",
+      "red": "#df7087",
+      "selection": "#582c43",
+      "yellow": "#e5ce78"
     }
   },
   "wallpapers": {
@@ -579,10 +663,24 @@ window.OMARCHY_DATA = {
     "hackerman": [
       "wallpapers/hackerman/03-omarchy.webp"
     ],
+    "hermarchy": [
+      "wallpapers/hermarchy/01-hermarchy-command.webp",
+      "wallpapers/hermarchy/02-hermarchy.webp",
+      "wallpapers/hermarchy/03-hermarchy.webp",
+      "wallpapers/hermarchy/04-omarchy.webp"
+    ],
+    "jade-horse": [
+      "wallpapers/jade-horse/01-ink-horse.webp",
+      "wallpapers/jade-horse/02-carved-jade-horse.webp",
+      "wallpapers/jade-horse/03-mountain-horses.webp",
+      "wallpapers/jade-horse/04-omarchy.webp"
+    ],
     "kanagawa": [
       "wallpapers/kanagawa/02-omarchy.webp"
     ],
-    "last-horizon": [],
+    "last-horizon": [
+      "wallpapers/last-horizon/01-omarchy.webp"
+    ],
     "lumon": [
       "wallpapers/lumon/03-omarchy.webp"
     ],
@@ -610,8 +708,12 @@ window.OMARCHY_DATA = {
     "rose-pine": [
       "wallpapers/rose-pine/04-omarchy.webp"
     ],
-    "solitude": [],
-    "starship": [],
+    "solitude": [
+      "wallpapers/solitude/01-omarchy.webp"
+    ],
+    "starship": [
+      "wallpapers/starship/01-omarchy.webp"
+    ],
     "tokyo-night": [
       "wallpapers/tokyo-night/01-liftoff-sunset.webp",
       "wallpapers/tokyo-night/09-omarchy.webp"
@@ -621,8 +723,14 @@ window.OMARCHY_DATA = {
     ],
     "white": [
       "wallpapers/white/04-omarchy.webp"
+    ],
+    "year-of-the-horse": [
+      "wallpapers/year-of-the-horse/01-ink-horse.webp",
+      "wallpapers/year-of-the-horse/02-paper-horse.webp",
+      "wallpapers/year-of-the-horse/03-mountain-horses.webp",
+      "wallpapers/year-of-the-horse/04-omarchy.webp"
     ]
   },
   "logo": "                 \u2584\u2584\u2584\n \u2584\u2588\u2588\u2588\u2588\u2588\u2584    \u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2584    \u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2588   \u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2588   \u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2588   \u2584\u2588   \u2588\u2584    \u2584\u2588   \u2588\u2584     \u2584\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2584   \u2584\u2588   \u2588\u2584\n\u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588    \u2580\u2580\u2580\u2588\u2588\u2588\u2580\u2580\u2580  \u2588\u2588\u2588   \u2588\u2588\u2588\n\u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2580   \u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588       \u2588\u2588\u2588     \u2588\u2588\u2588   \u2588\u2588\u2588\n\u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588   \u2588\u2588\u2588 \u2584\u2588\u2588\u2588\u2584\u2584\u2584\u2588\u2588\u2588 \u2584\u2588\u2588\u2588\u2584\u2584\u2584\u2588\u2588\u2580  \u2588\u2588\u2588       \u2584\u2588\u2588\u2588\u2584\u2584\u2584\u2588\u2588\u2588\u2584 \u2588\u2588\u2588\u2584\u2584\u2584\u2588\u2588\u2588       \u2588\u2588\u2588     \u2588\u2588\u2588   \u2588\u2588\u2588\n\u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588   \u2588\u2588\u2588 \u2580\u2588\u2588\u2588\u2580\u2580\u2580\u2588\u2588\u2588 \u2580\u2588\u2588\u2588\u2580\u2580\u2580\u2580    \u2588\u2588\u2588      \u2580\u2580\u2588\u2588\u2588\u2580\u2580\u2580\u2588\u2588\u2588  \u2580\u2580\u2580\u2580\u2580\u2580\u2588\u2588\u2588       \u2588\u2588\u2588     \u2588\u2588\u2588   \u2588\u2588\u2588\n\u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588 \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2584   \u2588\u2588\u2588   \u2588\u2588\u2588  \u2584\u2588\u2588   \u2588\u2588\u2588       \u2588\u2588\u2588     \u2580\u2588\u2588\u2584 \u2584\u2588\u2588\u2580\n\u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588   \u2588\u2588\u2588       \u2588\u2588\u2588      \u2580\u2588\u2588\u2584\u2588\u2588\u2580\n \u2580\u2588\u2588\u2588\u2588\u2588\u2580    \u2580\u2588   \u2588\u2588\u2588   \u2588\u2580   \u2588\u2588\u2588   \u2588\u2580   \u2588\u2588\u2588   \u2588\u2588\u2588  \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2580   \u2588\u2588\u2588   \u2588\u2580    \u2580\u2588\u2588\u2588\u2588\u2588\u2580        \u2580\u2588\u2580        \u2580\u2588\u2580\n                                       \u2588\u2588\u2588   \u2588\u2580",
-  "notice": "OmarchyTV\nCopyright (c) 2026 Gathin (tv-vibehack / cleanyourtv, MIT)\nCopyright (c) 2026 Marco Porro (OmarchyTV, MIT)\n\nThis product includes third-party software, fonts and artwork:\n- Omarchy logo, icon, theme palettes and wordmark backgrounds - (c) David Heinemeier Hansson, MIT\n- \"Liftoff Sunset\" wallpaper - Tom Ballard (https://x.com/tcballard), https://github.com/tcballard/omarchy-theme-tokyo-liftoff;\n  original photograph SpaceX (public domain per author); included with the author's permission (X, Oct 22, 2026)\n- Free My TV (LocalAdb port) - (c) 2026 Free My TV contributors, MIT\n- tte.js - Flavio Copes, MIT; TerminalTextEffects - ChrisBuilds, MIT; ttfx - 37signals/omacom, MIT\n- Cascadia Code / CaskaydiaMono - (c) Microsoft Corporation, SIL OFL 1.1 (RFN \"Cascadia Code\"); Nerd Fonts, MIT\n- AndroidX / Media3 ExoPlayer - The Android Open Source Project, Apache License 2.0\nFull details and licence texts: THIRD-PARTY.md and launcher/app/src/main/assets/licenses/.\n\"Omarchy\" is the Omarchy project's branding; this is an unofficial fan project.\nAll other trademarks (Netflix, Google, Sony, X, ...) belong to their owners; no endorsement implied.\n\n"
+  "notice": "OmarchyTV\nCopyright (c) 2026 Gathin (tv-vibehack / cleanyourtv, MIT)\nCopyright (c) 2026 Marco Porro (OmarchyTV, MIT)\n\nThis product includes third-party software, fonts and artwork:\n- Omarchy logo, icon, theme palettes and wordmark backgrounds - (c) David Heinemeier Hansson, MIT\n- Jade Horse & Year of the Horse themes and original wallpapers - (c) 2026 David Heinemeier Hansson (dhh/omarchy-jade-horse-theme, dhh/omarchy-year-of-the-horse-theme), MIT\n- Hermarchy theme and original SVG wallpapers - (c) 2026 Archer Clawbot (archer-clawbot/omarchy-hermarchy-theme), MIT\n- \"Liftoff Sunset\" wallpaper - Tom Ballard (https://x.com/tcballard), https://github.com/tcballard/omarchy-theme-tokyo-liftoff;\n  original photograph SpaceX (public domain per author); included with the author's permission (X, Oct 22, 2026)\n- Sharp AQUOS Live TV integration & bug reports - Anderson Leite (@anderson-leite), MIT\n- Free My TV (LocalAdb port) - (c) 2026 Free My TV contributors, MIT\n- tte.js - Flavio Copes, MIT; TerminalTextEffects - ChrisBuilds, MIT; ttfx - 37signals/omacom, MIT\n- Cascadia Code / CaskaydiaMono - (c) Microsoft Corporation, SIL OFL 1.1 (RFN \"Cascadia Code\"); Nerd Fonts, MIT\n- AndroidX / Media3 ExoPlayer - The Android Open Source Project, Apache License 2.0\nFull details and licence texts: THIRD-PARTY.md and launcher/app/src/main/assets/licenses/.\n\"Omarchy\" is the Omarchy project's branding; this is an unofficial fan project.\nAll other trademarks (Netflix, Google, Sony, Sharp, X, ...) belong to their owners; no endorsement implied.\n\n"
 };
