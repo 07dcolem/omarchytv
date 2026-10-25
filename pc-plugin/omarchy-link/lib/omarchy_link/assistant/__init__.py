@@ -41,7 +41,7 @@ CONV_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 MAX_TEXT = 2000
 MAX_ANSWER = 16 * 1024          # bytes of answer text per question (TV limit)
 MIN_INTERVAL = 3.0              # seconds between questions (TV sends at most 1 per 3 s)
-AUTO_ORDER = ["claude_code", "codex", "grok_cli", "gemini_cli", "ollama"]
+AUTO_ORDER = ["claude_code", "codex", "grok_cli", "grok_bot", "hermes_cli", "gemini_cli", "ollama"]
 
 SYSTEM_PROMPT = (
     "You are the voice assistant of a living-room TV. Your reply is shown on the TV and read aloud. "
