@@ -4,13 +4,15 @@ Copyright (c) 2026 Marco Porro (OmarchyTV, MIT)
 
 This product includes third-party software, fonts and artwork:
 - Omarchy logo, icon, theme palettes and wordmark backgrounds - (c) David Heinemeier Hansson, MIT
+- Jade Horse & Year of the Horse themes and original wallpapers - (c) 2026 David Heinemeier Hansson (dhh/omarchy-jade-horse-theme, dhh/omarchy-year-of-the-horse-theme), MIT
+- Hermarchy theme and original SVG wallpapers - (c) 2026 Archer Clawbot (archer-clawbot/omarchy-hermarchy-theme), MIT
 - "Liftoff Sunset" wallpaper - Tom Ballard (https://x.com/tcballard), https://github.com/tcballard/omarchy-theme-tokyo-liftoff;
   original photograph SpaceX (public domain per author); included with the author's permission (X, Oct 22, 2026)
+- Sharp AQUOS Live TV integration & bug reports - Anderson Leite (@anderson-leite), MIT
 - Free My TV (LocalAdb port) - (c) 2026 Free My TV contributors, MIT
 - tte.js - Flavio Copes, MIT; TerminalTextEffects - ChrisBuilds, MIT; ttfx - 37signals/omacom, MIT
 - Cascadia Code / CaskaydiaMono - (c) Microsoft Corporation, SIL OFL 1.1 (RFN "Cascadia Code"); Nerd Fonts, MIT
 - AndroidX / Media3 ExoPlayer - The Android Open Source Project, Apache License 2.0
 Full details and licence texts: THIRD-PARTY.md and launcher/app/src/main/assets/licenses/.
 "Omarchy" is the Omarchy project's branding; this is an unofficial fan project.
-All other trademarks (Netflix, Google, Sony, X, ...) belong to their owners; no endorsement implied.
-
+All other trademarks (Netflix, Google, Sony, Sharp, X, ...) belong to their owners; no endorsement implied.

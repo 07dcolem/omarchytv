@@ -109,11 +109,11 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         List<ResolveInfo> found = pm.queryIntentActivities(probe, 0);
         List<Entry> fresh = new ArrayList<>();
         // With the "> tv" section on, the Live TV app lives there; don't show it twice.
-        String liveTv = cfg.tvEnabled ? ctx.getString(R.string.live_tv_package).trim() : "";
+        String liveTv = cfg.tvEnabled ? MainActivity.liveTvPackage(ctx) : "";
         for (ResolveInfo ri : found) {
             if (ri.activityInfo == null) continue;
             String pkg = ri.activityInfo.packageName;
-            if (pkg.equals(ctx.getPackageName()) || hidden.contains(pkg) || pkg.equals(liveTv)) continue;
+            if (pkg.equals(ctx.getPackageName()) || cfg.isHidden(pkg) || pkg.equals(liveTv)) continue;
             Drawable banner = ri.activityInfo.loadBanner(pm);
             if (banner == null) banner = ri.activityInfo.applicationInfo.loadBanner(pm);
             Drawable custom = bannerOverride(pkg);
@@ -129,7 +129,7 @@ public class AppAdapter extends RecyclerView.Adapter<AppAdapter.Holder> {
         }
         for (LauncherConfig.WebApp w : cfg.webapps) {
             String key = "web:" + w.id;
-            if (hidden.contains(key)) continue;
+            if (cfg.isHidden(key)) continue;
             Drawable icon = null;
             if (w.icon.startsWith("/")) {
                 try {

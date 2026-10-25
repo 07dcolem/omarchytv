@@ -56,8 +56,11 @@ if(!window.ResizeObserver)window.ResizeObserver=function(){this.observe=function
       try{ if(fx)fx.destroy(); }catch(x){}
       pre.textContent=clean();fit();
       var frames=0,t0=0;
+      var spd=(S&&S.speed&&S.speed())||'normal';
+      var dur=spd==='slow'?4200:(spd==='fast'?1350:2400);
+      var holdMs=spd==='slow'?2200:(spd==='fast'?900:1500);
       try{
-        fx=new TTE.TextEffect(pre,{effect:e,autoplay:false,background:'#000',fps:60,seed:Math.floor(Math.random()*1e9),respectReducedMotion:false,
+        fx=new TTE.TextEffect(pre,{effect:e,autoplay:false,background:'#000',duration:dur,fps:60,seed:Math.floor(Math.random()*1e9),respectReducedMotion:false,
           onFinish:function(){}});
       }catch(err){log('effetto '+e+' fallito: '+err.message);setTimeout(next,200);return}
       function count(ts){ if(!t0)t0=ts; frames++; if(fx&&fx.running)requestAnimationFrame(count); }
@@ -66,7 +69,7 @@ if(!window.ResizeObserver)window.ResizeObserver=function(){this.observe=function
       else log('effetto: '+e);
       fx.play().then(function(){
         var dt=(performance.now()-t0)/1000; if(dt>0)log('effetto '+e+': '+Math.round(frames/dt)+' fps');
-        setTimeout(next,1500);   // hold the finished logo briefly, like ttfx between effects
+        setTimeout(next,holdMs);   // hold the finished logo briefly, like ttfx between effects
       },function(){setTimeout(next,0)});
     }
   }
