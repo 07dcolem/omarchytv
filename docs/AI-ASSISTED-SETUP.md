@@ -13,7 +13,7 @@ Copy, replace `<TV-IP>` and the APK path, paste:
 ```text
 Goal: install the OmarchyTV launcher (package com.omarchytv.home) on my Android TV over adb, optionally set it
 as home screen and screensaver, and optionally do a safe, reversible debloat. TV: <TV-IP>:5555, network debugging
-is enabled. APK: ./omarchytv-release-2.11.0.apk
+is enabled. APK: ./omarchytv-release-2.12.0-beta.apk
 
 HARD RULES (never break them, stop and ask if a step seems to need it):
 1. Back up first: save `pm list packages -f`, `pm list packages -d`, the current HOME activity
@@ -28,7 +28,7 @@ HARD RULES (never break them, stop and ask if a step seems to need it):
 
 Steps:
 a) `adb connect <TV-IP>:5555`; `adb devices` must show it as "device" (I accept the prompt on the TV).
-b) Verify the APK: `sha256sum` must be 68e861248e65a74aeceee88683fdb24a15bde900ccf91970969dac2d207608b2 and
+b) Verify the APK: `sha256sum` must be f1426db057fdc958fe562d1afd57a710b896e2f63d4fa6c2ec6c8ceefdfee11e and
    `apksigner verify --print-certs` must show signer SHA-256
    90aa68d9f45e623eadfd349ab1eb66042356f95ff6347a4568c3f3a78f8ea33d. Stop if either differs.
 c) Backup (rule 1).
@@ -94,6 +94,14 @@ my computer on the same network as the TV (ask me which), and end with a verific
 ```
 
 A shareable Grok Bot template for OmarchyTV setup will be published later.
+
+### Grok Bot & MCP Server Control (`2.12.0-beta+`)
+
+In addition to ADB setup, OmarchyTV `2.12.0-beta` includes two built-in ways to use **Grok Bot** directly with your TV:
+1. **On-TV Grok Bot WebApp & `> ask` Prompt:** Open **Grok Bot** directly from the Home screen shelf, the **Grok Bot & AI** hub (Main Menu, Workspace 4 `PC`, or Workspace 5 `System`), or Walker search (`> grok bot` / `> ask`). You only need to sign in once on the TV (persistent cookies/DOM storage in the sandboxed `:web` process, with D-pad spatial navigation and long-press Back virtual cursor), or pair your PC via `omarchy-link` to answer `> grok bot` / `> ask` prompts from the PC without logging in on the TV.
+2. **MCP Server (`/mcp` on TV + `omarchy-tv mcp` on PC):**
+   - **Direct TV MCP endpoint:** `POST http://<TV-IP>:8999/mcp` (or `/v1/mcp`) using `Authorization: Bearer <link-token>` or `OTV1` HMAC signing.
+   - **PC MCP Bridge (`omarchy-tv mcp`):** Run `omarchy-tv mcp --stdio` for local MCP clients (Claude Desktop, Cursor, Hermes) or `omarchy-tv mcp --http --port 8990` (authenticated via `~/.config/omarchy-tv/mcp-token`) to expose the TV tools (`tv_get_status`, `tv_list_themes`, `tv_set_theme`, `tv_send_key`, `tv_launch_app`, `tv_cast_media`, `tv_show_notification`, `tv_open_ai_webapp`) to your remote Grok Bot agent.
 
 ## How to verify (whatever assistant you used)
 
