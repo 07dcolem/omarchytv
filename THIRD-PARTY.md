@@ -5,10 +5,11 @@ source, licence and what we changed. Full licence texts are in `launcher/app/src
 (also shipped inside the APK) and `launcher/app/src/main/assets/saver/tte-js/`.
 Audit date: 2026-10-25. Per-background provenance: `launcher/WALLPAPER-PROVENANCE.csv`.
 
-## 1. Project origin
-| Item | Author | Source | Licence | Modifications |
+## 1. Project origin & inspiration
+| Item | Author | Source | Licence | Notes |
 |---|---|---|---|---|
-| tv-vibehack / cleanyourtv (repo base: debloat scripts, `tools/`, original launcher, install flow) | Gathin (Gathin23) and contributors | https://github.com/Gathin23/tv-vibehack (renamed cleanyourtv) | MIT, `LICENSE` (Copyright (c) 2026 Gathin, kept unchanged) | OmarchyTV fork: launcher rewritten/restyled (`com.omarchytv.home`), screensaver, themes, PC link. Modifications Copyright (c) 2026 Marco Porro, added *alongside* Gathin's notice. |
+| OmarchyTV (`com.omarchytv.home`, `pc-plugin/`, `mobile-companion/`, `webos/`) | Marco Porro | https://gitlab.com/piermark/omarchytv | MIT, `LICENSE` (`Copyright (c) 2026 Marco Porro (OmarchyTV)`) | Original work and sole copyright of Marco Porro. |
+| tv-vibehack / cleanyourtv (initial concept inspiration) | Gathin (Gathin23) | https://github.com/Gathin23/tv-vibehack (renamed cleanyourtv) | MIT | Initial concept inspiration for a clean, ad-free Android TV home experience; no copyright claimed over OmarchyTV. |
 | Free My TV (`LocalAdb.java` port of `Adb.java`; watchdog and home-mode ideas) | Free My TV contributors | https://github.com/simbasjungles/free-my-tv | MIT, `licenses/FREE-MY-TV-MIT.txt` | Ported to the launcher's package, adapted to its config. |
 
 ## 2. Omarchy

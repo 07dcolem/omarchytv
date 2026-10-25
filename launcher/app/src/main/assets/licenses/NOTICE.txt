@@ -1,5 +1,4 @@
 OmarchyTV
-Copyright (c) 2026 Gathin (tv-vibehack / cleanyourtv, MIT)
 Copyright (c) 2026 Marco Porro (OmarchyTV, MIT)
 
 This product includes third-party software, fonts and artwork:
@@ -13,6 +12,7 @@ This product includes third-party software, fonts and artwork:
 - tte.js - Flavio Copes, MIT; TerminalTextEffects - ChrisBuilds, MIT; ttfx - 37signals/omacom, MIT
 - Cascadia Code / CaskaydiaMono - (c) Microsoft Corporation, SIL OFL 1.1 (RFN "Cascadia Code"); Nerd Fonts, MIT
 - AndroidX / Media3 ExoPlayer - The Android Open Source Project, Apache License 2.0
+- Inspired by the tv-vibehack / cleanyourtv concept by Gathin (MIT)
 Full details and licence texts: THIRD-PARTY.md and launcher/app/src/main/assets/licenses/.
 "Omarchy" is the Omarchy project's branding; this is an unofficial fan project.
 All other trademarks (Netflix, Google, Sony, Sharp, X, ...) belong to their owners; no endorsement implied.

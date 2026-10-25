@@ -45,8 +45,8 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * OmarchyTV home: Tokyo Night wallpaper, a Waybar-style top bar, a pinned dock row, an app grid, and one
- * Hyprland-style focus border that springs between tiles. Behaviour is unchanged from tv-vibehack's launcher.
+ * OmarchyTV home (Copyright (c) 2026 Marco Porro, MIT): Tokyo Night wallpaper, a Waybar-style top bar,
+ * a pinned dock row, an app grid, and a Hyprland-style focus border.
  */
 public class MainActivity extends Activity implements AppAdapter.TileListener, TvAdapter.Listener, ShortcutAdapter.Listener {
 

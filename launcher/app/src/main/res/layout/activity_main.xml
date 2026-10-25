@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- OmarchyTV home. Same view ids and structure as tv-vibehack's launcher; only the styling changed,
-     plus the wallpaper, the Waybar-style bar (workspaces / clock / modules) and the wordmark. -->
+<!-- OmarchyTV home (Copyright (c) 2026 Marco Porro, MIT): WallpaperView, Waybar-style top bar
+     (workspaces / clock / modules), wordmark, panels, and app grid. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/root"
     android:layout_width="match_parent"

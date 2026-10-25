@@ -1,9 +1,8 @@
-# OmarchyTV theme for the tv-vibehack launcher
+# OmarchyTV Launcher (`com.omarchytv.home`)
 
-A restyle of `launcher/` that makes the TV home look like an Omarchy desktop (Tokyo Night).
-Behaviour (dock, app grid, D-pad rules, Inputs dropdown, Wi-Fi, Settings, focus memory) is unchanged.
+An Omarchy desktop-styled home screen for Android TV (`Copyright (c) 2026 Marco Porro`, MIT), initially inspired by the `tv-vibehack` / `cleanyourtv` concept by Gathin.
 
-**Package:** `com.omarchytv.home` (was `com.gathin.tvhome`), so it can coexist with the original.
+**Package:** `com.omarchytv.home`.
 `minSdk 26` (Android 8.0), `targetSdk 29`, compileSdk 34.
 
 ## What changed
@@ -561,4 +560,4 @@ step can be undone with `tools/restore.sh`.
   the LAN (each new client still needs on-screen approval). Without it the toggle opens the home
   picker and points to `tools/restore.sh` — a plain app cannot re-enable a disabled launcher.
 - `examples/sony-kd55xe9005/debloat.txt`: a tested 27-package example list (default for this TV).
-- Credits: `launcher/THIRD-PARTY.md` (cleanyourtv MIT, Free My TV MIT).
+- Credits: see root `THIRD-PARTY.md` and `NOTICE` (`Copyright (c) 2026 Marco Porro`, MIT; Free My TV MIT).

@@ -1,4 +1,4 @@
-> Original README of [tv-vibehack](https://github.com/Gathin23/tv-vibehack) by Gathin, kept for credit and reference. OmarchyTV's README is [../README.md](../README.md).
+> Historical reference: README of [tv-vibehack](https://github.com/Gathin23/tv-vibehack) by Gathin, which served as an initial concept inspiration. OmarchyTV (`Copyright (c) 2026 Marco Porro`, MIT) is documented in [../README.md](../README.md).
 
 # tv-vibehack
 
