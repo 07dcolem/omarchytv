@@ -560,4 +560,4 @@ step can be undone with `tools/restore.sh`.
   the LAN (each new client still needs on-screen approval). Without it the toggle opens the home
   picker and points to `tools/restore.sh` — a plain app cannot re-enable a disabled launcher.
 - `examples/sony-kd55xe9005/debloat.txt`: a tested 27-package example list (default for this TV).
-- Credits: see root `THIRD-PARTY.md` and `NOTICE` (`Copyright (c) 2026 Marco Porro`, MIT; Free My TV MIT).
+- Credits: see root `THIRD-PARTY.md` and `NOTICE` (`Copyright (c) 2026 Marco Porro (@MarcoPorro · https://marcoporro.it)`, MIT; Free My TV MIT).
