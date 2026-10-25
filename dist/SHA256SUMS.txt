@@ -1,0 +1,4 @@
+9dedc335fb1150afa6027f4123bd295bec8241a4c654842a6be65caff993f035  omarchytv-release-2.12.0-beta.apk
+9dedc335fb1150afa6027f4123bd295bec8241a4c654842a6be65caff993f035  OmarchyTV-2.12.0-beta.apk
+2aef33b30e38eba6eb4355ad597bf382bb5e7210be59d7070d6b5f509765bd0c  omarchy-tv-pc-plugin-2.12.0-beta.tar.gz
+42bb62aa6169c52afacc9b477d25f6f95fffe2eeea9f779394606e1a4e5ad0a4  omarchytv-mobile-2.12.0-beta.apk
