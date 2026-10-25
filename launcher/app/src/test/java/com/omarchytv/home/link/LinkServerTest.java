@@ -331,6 +331,7 @@ public class LinkServerTest {
         // upload: streamed to the private cache, answered with its sha256
         byte[] img = new byte[200_000];
         new java.util.Random(7).nextBytes(img);
+        System.arraycopy(new byte[]{(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10}, 0, img, 0, 8);
         Resp up = signedBytes("PUT", "/v1/cast/file", img, "image/png");
         assertEquals(200, up.status);
         String sha = LinkCrypto.hex(LinkCrypto.sha256(img));
@@ -470,5 +471,38 @@ public class LinkServerTest {
         done.elapsed = 10;
         assertEquals(15, a.elapsedNow(run, 1_005_000));
         assertEquals(10, a.elapsedNow(done, 1_005_000));
+    }
+
+    @Test
+    public void mcpInitializeListAndCall() throws Exception {
+        pair("123456");
+        server.limits = false;
+        assertTrue(server.status().getJSONArray("capabilities").toString().contains("\"mcp\""));
+
+        // 1. Unauthenticated / wrong Bearer token -> 401
+        Map<String, String> badH = new HashMap<>();
+        badH.put("Authorization", "Bearer wrongtoken");
+        assertEquals(401, http("POST", "/mcp", "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}".getBytes(StandardCharsets.UTF_8), badH).status);
+
+        // 2. Bearer token authentication on /mcp
+        Map<String, String> bearerH = new HashMap<>();
+        bearerH.put("Authorization", "Bearer " + LinkCrypto.b64u(token));
+        Resp init = http("POST", "/mcp", "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}".getBytes(StandardCharsets.UTF_8), bearerH);
+        assertEquals(200, init.status);
+        assertEquals("omarchytv-mcp", init.json().getJSONObject("result").getJSONObject("serverInfo").getString("name"));
+
+        // 3. tools/list via Bearer
+        Resp list = http("POST", "/mcp", "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}".getBytes(StandardCharsets.UTF_8), bearerH);
+        assertEquals(200, list.status);
+        assertTrue(list.json().getJSONObject("result").getJSONArray("tools").length() >= 8);
+
+        // 4. tools/call tv_set_theme via OTV1 signed request on /v1/mcp
+        JSONObject callReq = new JSONObject()
+                .put("jsonrpc", "2.0").put("id", 3).put("method", "tools/call")
+                .put("params", new JSONObject().put("name", "tv_set_theme").put("arguments", new JSONObject().put("name", "jade-horse")));
+        Resp call = signed("POST", "/v1/mcp", callReq.toString());
+        assertEquals(200, call.status);
+        assertFalse(call.json().getJSONObject("result").getBoolean("isError"));
+        assertEquals("jade-horse", host.readConfig().getJSONObject("theme").getString("name"));
     }
 }
