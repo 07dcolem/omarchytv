@@ -221,6 +221,22 @@ class AssistantUnit(Base):
         self.assertEqual(lst["providers"][0]["model"], "llama-test")
         self.assertEqual(a.ask("hi", provider="ollama")["text"], "Local llama")
 
+    def test_hermes_and_grok_bot_providers(self):
+        _write_bin("hermes", "#!/usr/bin/env python3\nimport json, sys\nassert '-p' in sys.argv\nprint(json.dumps({'result': 'Hermes says hi'}))\n")
+        _write_bin("grok-bot", "#!/usr/bin/env python3\nimport json, sys\nassert '-p' in sys.argv\nprint(json.dumps({'result': 'Grok Bot says hi'}))\n")
+        (helpers.HOME / ".hermes").mkdir(parents=True, exist_ok=True)
+        (helpers.HOME / ".hermes/auth.json").write_text("{}")
+        (helpers.HOME / ".grok-bot").mkdir(parents=True, exist_ok=True)
+        (helpers.HOME / ".grok-bot/auth.json").write_text("{}")
+        clis.clear_cache()
+        self.settings({})
+        a = assistant.Assistant()
+        ids = [p["id"] for p in a.listing()["providers"]]
+        self.assertIn("hermes-cli", ids)
+        self.assertIn("grok-bot", ids)
+        self.assertEqual(a.ask("hi", provider="hermes-cli")["text"], "Hermes says hi")
+        self.assertEqual(a.ask("hi", provider="grok-bot")["text"], "Grok Bot says hi")
+
     def test_plain_http_only_on_lan(self):
         assistant.check_url("https://api.x.ai/v1")
         assistant.check_url("http://127.0.0.1:1234/v1")

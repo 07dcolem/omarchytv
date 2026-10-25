@@ -1,7 +1,7 @@
 # OmarchyTV PC plugin — design (bozza da rivedere / draft for review)
 
 Stato: **implementato in 2.10.1** (vedi README.md); questa resta la nota di progetto.
-(`/workspace/omarchy-link`, già con pairing SPAKE2, sync tema, widget barra, stats, cast, agenti AI).
+(`omarchy-link`, già con pairing SPAKE2, sync tema, widget barra, stats, cast, agenti AI).
 Proposta: non un secondo plugin, ma un **front-end `omarchy-tv`** dentro omarchy-link che raccoglie tutto in un
 menu stile Omarchy, più due funzioni nuove: **temi/sfondi sulla TV** e **aggiornamento APK**.
 
