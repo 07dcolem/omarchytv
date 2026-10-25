@@ -10,7 +10,7 @@ Every Android APK is signed with the official OmarchyTV release certificate (`SH
 
 | Artifact | Platform | Version | Size | SHA-256 |
 |---|---|---|---|---|
-| `omarchytv-release-2.12.0-beta.apk` | Android TV / Google TV (`com.omarchytv.home`, `minSdk 24`, `targetSdk 34`) | `2.12.0-omarchytv` (`versionCode 20`) | `3.8 MB` | `f1426db057fdc958fe562d1afd57a710b896e2f63d4fa6c2ec6c8ceefdfee11e` |
+| `omarchytv-release-2.12.0-beta.apk` | Android TV / Google TV (`com.omarchytv.home`, `minSdk 24`, `targetSdk 34`) | `2.12.0-omarchytv` (`versionCode 20`) | `3.8 MB` | `9dedc335fb1150afa6027f4123bd295bec8241a4c654842a6be65caff993f035` |
 | `omarchy-tv-pc-plugin-2.12.0-beta.tar.gz` | Omarchy Linux / macOS (`omarchy-tv` + `omarchy-link` + `tools/`) | `2.12.0-beta` | `184 KB` | `2aef33b30e38eba6eb4355ad597bf382bb5e7210be59d7070d6b5f509765bd0c` |
 | `omarchytv-mobile-2.12.0-beta.apk` | Android Smartphone Installer & Companion (`com.omarchytv.mobile`, `minSdk 26`, `targetSdk 34`) | `2.12.0-beta` (`versionCode 21200`) | `178 KB` | `42bb62aa6169c52afacc9b477d25f6f95fffe2eeea9f779394606e1a4e5ad0a4` |
 
@@ -26,11 +26,11 @@ Every Android APK is signed with the official OmarchyTV release certificate (`SH
 - **4K Omarchy Wordmark Wallpapers (`01-omarchy.webp`, `3840×2160`)** generated for `last-horizon`, `solitude`, and `starship` using each theme's exact MIT `background` and `accent` colors, ensuring every one of the **26 bundled MIT themes** ships with at least one 100%-MIT 4K wallpaper. Complete provenance is documented in [`THIRD-PARTY.md`](THIRD-PARTY.md), [`NOTICE`](NOTICE), and [`launcher/WALLPAPER-PROVENANCE.csv`](launcher/WALLPAPER-PROVENANCE.csv).
 - **`Sync PC wallpaper` Toggle (`syncPcWallpaper`, default `false`):** Pairing or syncing with a PC never overwrites the TV's bundled MIT wallpaper unless you explicitly turn on **Sync PC wallpaper** in the TV's Themes or Wallpaper menu.
 
-### 2. Zero-API-Cost AI & Grok Bot Integration (3 Modes)
-1. **Built-in AI WebApps (`> Grok Bot & AI` Hub & Home Shelf):**
-   - Direct on-TV access to **Grok Bot** (`grok.com`), **Grok (X)** (`x.com/i/grok`), **ChatGPT** (`chatgpt.com`), **Claude** (`claude.ai`), and **Hermes** (`hermes.nousresearch.com`).
-   - Runs in a sandboxed `:web` process (`WebAppActivity`) with persistent login cookies and DOM storage (sign in once on the TV or via QR code) plus D-pad spatial navigation and a virtual cursor (long-press **Back**).
-   - **Grok Bot** appears on the Home screen app shelf out of the box (and can be moved or hidden like any app tile) and in Walker search (`> grok bot`, `> ask`, `Grok Bot`, `ChatGPT`, `Claude`, `Hermes`).
+### 2. Zero-API-Cost AI & Grok Bot Integration (Native Omarchy TUI + WebApps + PC Bridge + MCP)
+1. **Native Grok Bot · Omarchy TUI (`AskActivity`) + Home Shelf TUI Tile:**
+   - Clicking the **Grok Bot** tile on the Home shelf (`grokbot@tv:~$ > GROK BOT [ omarchy · tui ]`) or selecting `Grok Bot (Omarchy TUI)` in the menu opens a native **Omarchy-styled TUI assistant window** (`BoxView` 2 px border, `btop`-style legend `grok bot · omarchy tui [<theme>]`, translucent theme surface over the live 4K `WallpaperView`, `CaskaydiaCove Nerd Font`, and `grokbot@omarchytv:~$` prompt).
+   - **Standalone Local TV & MCP Control (works offline with zero setup):** Switch any of the 26 MIT themes (`theme jade-horse`, `theme year-of-the-horse`, `theme hermarchy`, `next theme`, `themes`), cycle 4K wallpapers (`wallpaper`), trigger or configure the 37 TTE ASCII screensavers (`screensaver`, `speed slow|normal|fast`), launch installed TV apps or Live TV (`open YouTube`, `open TV`, `apps`), or inspect TV/network/MCP status (`status`) via voice, keyboard, or 1-click D-pad quick-action chips (`[ ⏭ next theme ]`, `[ 🖼 wallpaper ]`, `[ ✦ screensaver ]`, `[ 📊 status ]`, `[ 📦 apps ]`, `[ ❓ help ]`).
+   - **Optional Full Browser WebApps (`[ 🌐 grok.com ]` / `[ 🌐 web ▾ ]`):** One click inside the TUI header or `> Grok Bot & AI` hub opens **Grok Web** (`grok.com`), **Grok (X)** (`x.com/i/grok`), **ChatGPT** (`chatgpt.com`), **Claude** (`claude.ai`), or **Hermes** (`hermes.nousresearch.com`) in the sandboxed `:web` process (`WebAppActivity`) with persistent login cookies and D-pad cursor.
 2. **PC / Mac CLI Bridge (`omarchy-link`):**
    - Run `> ask` or `> grok bot` from the TV Walker bar using the AI CLI tools already signed in on your paired PC or Mac (`grok`, `claude`, `codex`, `gemini`, `hermes`, or local `ollama`) with **zero extra API keys**.
 3. **Native MCP Server (TV `POST /mcp` & PC `omarchy-tv mcp`):**

@@ -91,7 +91,7 @@ Full release notes: **[RELEASE-2.12.0-beta.md](RELEASE-2.12.0-beta.md)** and **[
    ```bash
    adb connect <tv-ip>:5555
    sha256sum omarchytv-release-2.12.0-beta.apk
-   # Expected SHA-256: f1426db057fdc958fe562d1afd57a710b896e2f63d4fa6c2ec6c8ceefdfee11e
+   # Expected SHA-256: 9dedc335fb1150afa6027f4123bd295bec8241a4c654842a6be65caff993f035
    apksigner verify --print-certs omarchytv-release-2.12.0-beta.apk
    # Expected Signer #1 SHA-256: 90aa68d9f45e623eadfd349ab1eb66042356f95ff6347a4568c3f3a78f8ea33d
    adb install -r omarchytv-release-2.12.0-beta.apk

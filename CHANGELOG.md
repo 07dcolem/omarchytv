@@ -3,7 +3,7 @@
 ## [2.12.0-beta] — 2026-10-25 (versionCode 20 — 26 MIT Themes & Original Wallpapers, Grok Bot & AI Hub, Native MCP Server, Sharp AQUOS & Scrollable Menus)
 
 ### Release Artifacts (`v2.12.0-beta`)
-- **Android TV Launcher APK (`omarchytv-release-2.12.0-beta.apk`):** `versionCode 20`, SHA-256 `f1426db057fdc958fe562d1afd57a710b896e2f63d4fa6c2ec6c8ceefdfee11e`
+- **Android TV Launcher APK (`omarchytv-release-2.12.0-beta.apk`):** `versionCode 20`, SHA-256 `9dedc335fb1150afa6027f4123bd295bec8241a4c654842a6be65caff993f035`
 - **PC / Mac Plugin (`omarchy-tv-pc-plugin-2.12.0-beta.tar.gz`):** `2.12.0-beta`, SHA-256 `2aef33b30e38eba6eb4355ad597bf382bb5e7210be59d7070d6b5f509765bd0c`
 - **Android Phone Companion (`omarchytv-mobile-2.12.0-beta.apk`):** `versionCode 21200`, SHA-256 `42bb62aa6169c52afacc9b477d25f6f95fffe2eeea9f779394606e1a4e5ad0a4`
 - **Signing Certificate SHA-256:** `90aa68d9f45e623eadfd349ab1eb66042356f95ff6347a4568c3f3a78f8ea33d`
@@ -15,9 +15,10 @@
     - **`year-of-the-horse`** ([dhh/omarchy-year-of-the-horse-theme](https://github.com/dhh/omarchy-year-of-the-horse-theme), MIT, © 2026 David Heinemeier Hansson): `01-ink-horse.webp`, `02-paper-horse.webp`, `03-mountain-horses.webp`, `04-omarchy.webp`.
     - **`hermarchy`** ([archer-clawbot/omarchy-hermarchy-theme](https://github.com/archer-clawbot/omarchy-hermarchy-theme), MIT, © 2026 Archer Clawbot): `01-hermarchy-command.webp`, `02-hermarchy.webp`, `03-hermarchy.webp`, `04-omarchy.webp`.
   - Generated 3840×2160 flat two-color Omarchy wordmark wallpapers (`01-omarchy.webp`) for `last-horizon`, `solitude`, and `starship` using each theme's exact MIT `background` and `accent` colors, so all **26 bundled MIT themes** have at least one bundled 100%-MIT wallpaper.
-- **Grok Bot & AI WebApps + Native `> ask` / `> grok bot` Integration:**
-  - Built-in AI WebApps (**Grok Bot**, **Grok (X)**, **ChatGPT**, **Claude**, **Hermes**) running in the sandboxed `:web` process (`WebAppActivity`) with persistent cookies/DOM storage (log in once or scan QR on the TV) and D-pad spatial navigation + virtual cursor (long-press Back).
-  - **Grok Bot** appears on the Home screen app shelf out of the box (removable/hidable like any app) and in Walker search (`> grok bot`, `> ask`, `Grok Bot`, `ChatGPT`, `Claude`, `Hermes`).
+- **Native Grok Bot · Omarchy TUI (`AskActivity`) + AI WebApps:**
+  - **Grok Bot Omarchy TUI on Home Shelf:** Clicking the **Grok Bot** tile (`grokbot@tv:~$ > GROK BOT [ omarchy · tui ]`) on the Home screen opens the native Omarchy-styled TUI window (`BoxView` 2 px border, `grok bot · omarchy tui [<theme>]` legend, live 4K `WallpaperView` backdrop, `grokbot@omarchytv:~$` prompt, D-pad quick-action chips, voice & keyboard input).
+  - **Standalone Local TV Commands + Paired PC AI Bridge:** Control themes (`theme jade-horse`, `next theme`, `themes`), 4K wallpapers (`wallpaper`), ASCII screensavers (`screensaver`, `speed slow|normal|fast`), installed TV apps (`open YouTube`, `apps`), and system/MCP status (`status`) directly on the TV without a PC, or stream answers from a paired PC's CLI (`grok`, `claude`, `codex`, `gemini`, `hermes`, `ollama`) over `OmarchyLink`.
+  - **Built-in AI WebApps (`[ 🌐 grok.com ]` / `[ 🌐 web ▾ ]`):** Open **Grok Web** (`grok.com`), **Grok (X)** (`x.com/i/grok`), **ChatGPT**, **Claude**, or **Hermes** in the sandboxed `:web` process (`WebAppActivity`) with persistent cookies/DOM storage and D-pad cursor.
   - **Grok Bot & AI Hub** reachable from the Main Menu, Workspace 4 (`PC`), Workspace 5 (`System`), and `AI & terminal`.
   - Added `grok` (`Grok Bot`) and `hermes` (`Hermes Agent`) CLI/API providers to `omarchy-link` (`AUTO_ORDER` and `clis.py`).
 - **Native MCP Server (TV `:8999/mcp` + PC `omarchy-tv mcp`):**
