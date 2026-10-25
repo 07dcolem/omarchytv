@@ -888,11 +888,17 @@ final class HomeV29 extends FrameLayout {
             h.setTextColor(t.fg);
             h.setSingleLine(false);
             pcPaneBody.addView(h);
+            LinearLayout actions = hbox();
+            LinearLayout.LayoutParams al = new LinearLayout.LayoutParams(-2, -2);
+            al.topMargin = px(28);
+            al.bottomMargin = px(16);
             TextView b = button(act.getString(R.string.v210_pc_pair), () -> host.pairPc());
-            LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(-2, -2);
-            bl.topMargin = px(28);
-            bl.bottomMargin = px(16);
-            pcPaneBody.addView(b, bl);
+            TextView bGrok = button(act.getString(R.string.grok_bot_hub), () -> host.sys("grok-bot"));
+            LinearLayout.LayoutParams gl = new LinearLayout.LayoutParams(-2, -2);
+            gl.leftMargin = px(18);
+            actions.addView(b);
+            actions.addView(bGrok, gl);
+            pcPaneBody.addView(actions, al);
             if (keep) b.requestFocus();
             return;
         }
@@ -918,6 +924,20 @@ final class HomeV29 extends FrameLayout {
         updateAi(ab);
         ai.setOnClickListener(host::aiMenu);
         big = 1f;
+        LinearLayout actions = hbox();
+        LinearLayout.LayoutParams al = new LinearLayout.LayoutParams(-2, -2);
+        al.topMargin = px(20);
+        TextView bGrok = button(act.getString(R.string.grok_bot_hub), () -> host.sys("grok-bot"));
+        TextView bAsk = button(act.getString(R.string.ask_entry), () -> host.sys("ask"));
+        TextView bAgents = button("> agents", () -> host.sys("agents"));
+        LinearLayout.LayoutParams sl1 = new LinearLayout.LayoutParams(-2, -2);
+        sl1.leftMargin = px(16);
+        LinearLayout.LayoutParams sl2 = new LinearLayout.LayoutParams(-2, -2);
+        sl2.leftMargin = px(16);
+        actions.addView(bGrok);
+        actions.addView(bAsk, sl1);
+        actions.addView(bAgents, sl2);
+        pcPaneBody.addView(actions, al);
         if (keep) pc.requestFocus();
     }
 
@@ -952,6 +972,8 @@ final class HomeV29 extends FrameLayout {
         sysRow(R.string.v210_ss_after, idle, "idle");
         sysRow(R.string.v210_logo_anim, cfg.logoAnim ? on : off, "logoAnim");
         sysRow(R.string.v210_text_tiles, cfg.textTiles ? on : off, "textTiles");
+        sysRow(R.string.grok_bot_hub, null, "grok-bot");
+        sysRow(R.string.set_hidden, String.valueOf(cfg.hidden.size()), "hidden");
         sysRow(R.string.v210_sys_all, null, "menu");
         sysRow(R.string.menu_about, null, "about");
         if (had >= 0 && had < sysBody.getChildCount()) sysBody.getChildAt(had).requestFocus();

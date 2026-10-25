@@ -52,6 +52,64 @@ final class LauncherConfig {
         }
     }
 
+    /** Built-in AI & Grok Bot WebApps (like Omarchy desktop webapps, zero API cost, persistent login in :web). */
+    static final WebApp[] BUILTIN_AI_WEBAPPS = new WebApp[]{
+            new WebApp("grok-bot", "Grok Bot", "https://grok.com", "G", "desktop"),
+            new WebApp("grok", "Grok (X)", "https://x.com/i/grok", "X", "desktop"),
+            new WebApp("chatgpt", "ChatGPT", "https://chatgpt.com", "C", "desktop"),
+            new WebApp("claude", "Claude", "https://claude.ai", "A", "desktop"),
+            new WebApp("hermes", "Hermes", "https://hermes.nousresearch.com", "H", "desktop"),
+    };
+
+    static WebApp findBuiltinAiWebApp(String idOrName) {
+        if (idOrName == null) return null;
+        String k = idOrName.trim().toLowerCase(java.util.Locale.ROOT);
+        if (k.startsWith("web:")) k = k.substring(4);
+        for (WebApp w : BUILTIN_AI_WEBAPPS) {
+            if (w.id.equalsIgnoreCase(k) || w.name.equalsIgnoreCase(k)) return w;
+        }
+        return null;
+    }
+
+    /** Ensures a WebApp exists in {@code root.webapps} and optionally pins {@code web:<id>} in {@code root.dock}. */
+    static void ensureWebApp(JSONObject root, WebApp w, boolean pinToDock) throws Exception {
+        JSONArray wa = root.optJSONArray("webapps");
+        if (wa == null) {
+            wa = new JSONArray();
+            wa.put(new JSONObject().put("id", "x").put("name", "X").put("url", "https://x.com").put("ua", "mobile"));
+            root.put("webapps", wa);
+        }
+        boolean found = false;
+        for (int i = 0; i < wa.length(); i++) {
+            JSONObject o = wa.optJSONObject(i);
+            if (o != null && w.id.equals(slug(o.optString("id", o.optString("name"))))) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            JSONObject o = new JSONObject().put("id", w.id).put("name", w.name).put("url", w.url).put("ua", w.ua);
+            if (w.icon != null && !w.icon.isEmpty()) o.put("icon", w.icon);
+            wa.put(o);
+        }
+        if (pinToDock) {
+            JSONArray dock = root.optJSONArray("dock");
+            if (dock == null) {
+                dock = new JSONArray();
+                root.put("dock", dock);
+            }
+            String key = "web:" + w.id;
+            boolean inDock = false;
+            for (int i = 0; i < dock.length(); i++) {
+                if (key.equals(dock.optString(i))) {
+                    inDock = true;
+                    break;
+                }
+            }
+            if (!inDock) dock.put(key);
+        }
+    }
+
     static String slug(String s) {
         String out = s.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("(^-|-$)", "");
         return out.isEmpty() ? "app" : out;
@@ -210,6 +268,8 @@ final class LauncherConfig {
     /** "tempUnit": "C" (default) or "F"; Open-Meteo answers stay in °C, converted only for display. */
     final boolean tempF;
     final String wallpaper;          // "omarchy", "procedural", or an absolute image path
+    /** Opt-in PC active wallpaper sync (default false: use bundled MIT theme wallpaper / Liftoff Sunset fallback). */
+    final boolean syncPcWallpaper;
     /** v2.10: which of the current theme's official backgrounds (assets/wallpapers/<theme>/), like Omarchy next-background. */
     final int wallpaperBg;
     /** The resolved Omarchy theme (see Theme). */
@@ -223,6 +283,8 @@ final class LauncherConfig {
     final String screensaverText;
     /** Logo width as a share of the screen: "small" 45%, "medium" 56%, "large" 68% (default). */
     final String screensaverSize;
+    /** Effect animation speed: "slow", "normal" (default), "fast". */
+    final String screensaverSpeed;
     /** Launcher UI size: "small", "medium" (default), "large". */
     final String uiSize;
     /** Hyprland-style geometry, adjustable in settings: text scale, tile scale, gaps (dp), border (dp). */
@@ -365,6 +427,7 @@ final class LauncherConfig {
         List<WebApp> web = new ArrayList<>();
         JSONArray wa2 = j != null ? j.optJSONArray("webapps") : null;
         if (wa2 == null) {
+            web.add(new WebApp("grok-bot", "Grok Bot", "https://grok.com", "G", "desktop"));
             web.add(new WebApp("x", "X", "https://x.com", "", "mobile"));
         } else {
             java.util.Set<String> ids = new java.util.HashSet<>();
@@ -403,6 +466,7 @@ final class LauncherConfig {
         weatherPlace = wx != null ? wx.optString("place", "") : "";
         tempF = j != null && "F".equalsIgnoreCase(j.optString("tempUnit", "C").trim());
         wallpaper = j != null ? j.optString("wallpaper", c.getString(R.string.wallpaper)).trim() : c.getString(R.string.wallpaper).trim();
+        syncPcWallpaper = j != null && j.optBoolean("syncPcWallpaper", false);
         wallpaperBg = j != null ? Math.max(0, j.optInt("wallpaper_bg", 0)) : 0;
         JSONObject theme = j != null ? j.optJSONObject("theme") : null;
         // All colours come from the Omarchy theme (pushed colours > bundled stock palette > Tokyo Night).
@@ -428,6 +492,8 @@ final class LauncherConfig {
         transparency = (int) clamp(geo != null ? geo.optInt("transparency", Surfaces.DEFAULT) : Surfaces.DEFAULT, 5, 60);
         wallpaperDim = geo != null ? geo.optString("wallpaperDim", "off") : "off";
         screensaverSize = ss != null ? ss.optString("size", "large").trim() : "large";
+        String sspd = ss != null ? ss.optString("speed", "normal").trim().toLowerCase(java.util.Locale.ROOT) : "normal";
+        screensaverSpeed = ("slow".equals(sspd) || "fast".equals(sspd)) ? sspd : "normal";
         int idle = ss != null ? ss.optInt("idleMin", 5) : 5;
         screensaverIdleMin = idle == 1 || idle == 2 || idle == 10 || idle == 15 ? idle : 5;
         screensaverSystem = ss != null && ss.optBoolean("system", false);
@@ -471,6 +537,17 @@ final class LauncherConfig {
         }
         widgets = Collections.unmodifiableList(w);
         sourceModified = modified;
+    }
+
+    /** True if {@code pkg} is hidden (matches exact package or legacy {@code pkg/activity} entries). */
+    boolean isHidden(String pkg) {
+        if (pkg == null || pkg.isEmpty()) return false;
+        if (hidden.contains(pkg)) return true;
+        String prefix = pkg + "/";
+        for (String h : hidden) {
+            if (h != null && h.startsWith(prefix)) return true;
+        }
+        return false;
     }
 
     static float sizeFraction(String size) {
