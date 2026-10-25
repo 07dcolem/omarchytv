@@ -3,7 +3,7 @@
 OmarchyTV respects the work of others: everything not written for this project is listed here with author,
 source, licence and what we changed. Full licence texts are in `launcher/app/src/main/assets/licenses/`
 (also shipped inside the APK) and `launcher/app/src/main/assets/saver/tte-js/`.
-Audit date: 2026-10-22. Per-background provenance: `launcher/WALLPAPER-PROVENANCE.csv`.
+Audit date: 2026-10-25. Per-background provenance: `launcher/WALLPAPER-PROVENANCE.csv`.
 
 ## 1. Project origin
 | Item | Author | Source | Licence | Modifications |
@@ -16,7 +16,11 @@ Audit date: 2026-10-22. Per-background provenance: `launcher/WALLPAPER-PROVENANC
 |---|---|---|---|---|
 | `logo.txt` (home/screensaver logo), `icon.txt` (bar icon → `res/drawable/omarchy_icon.xml`) | David Heinemeier Hansson / Omarchy contributors | https://github.com/basecamp/omarchy (omacom/omarchy) | MIT, `licenses/OMARCHY-LICENSE-MIT.txt` | Icon vectorised; logo animated; "TV" glyphs original. |
 | Theme palettes (`themes/*/colors.toml`, colour values only) → `assets/omarchy_themes.json` | same | same, commit be54892 | MIT | Converted to JSON. Tokyo Night palette originally by enkia/folke (colour values only). |
-| Theme backgrounds: **only the 20 Omarchy-original wordmark images** (`NN-omarchy.webp`, flat theme-background + accent) | David Heinemeier Hansson (commit "Add omarchy bg option to all themes", 2026-04-28) | same | MIT | PNG → WebP, scaled to 3840x2160. |
+| Theme backgrounds: **all 26 Omarchy-original wordmark images** (`NN-omarchy.webp`, flat theme-background + accent across all 26 bundled MIT themes) | David Heinemeier Hansson (commit "Add omarchy bg option to all themes", 2026-04-28) | same | MIT | PNG → WebP, scaled to 3840x2160. |
+| **Jade Horse** theme (`jade-horse`) & 3 original wallpapers (`01-ink-horse.webp`, `02-carved-jade-horse.webp`, `03-mountain-horses.webp`) | David Heinemeier Hansson | https://github.com/dhh/omarchy-jade-horse-theme | MIT (Copyright (c) 2026 David Heinemeier Hansson) | `colors.toml` added to `omarchy_themes.json`; PNG 1672x941 → WebP (q88). |
+| **Year of the Horse** theme (`year-of-the-horse`) & 3 original wallpapers (`01-ink-horse.webp`, `02-paper-horse.webp`, `03-mountain-horses.webp`) | David Heinemeier Hansson | https://github.com/dhh/omarchy-year-of-the-horse-theme | MIT (Copyright (c) 2026 David Heinemeier Hansson) | `colors.toml` added to `omarchy_themes.json`; PNG 1672x941 → WebP (q88). |
+| **Hermarchy** theme (`hermarchy`) & 3 original SVG-generated wallpapers (`01-hermarchy-command.webp`, `02-hermarchy.webp`, `03-hermarchy.webp`) | Archer Clawbot | https://github.com/archer-clawbot/omarchy-hermarchy-theme | MIT (Copyright (c) 2026 Archer Clawbot; `NOTICE` certifies original SVG geometric/typographic artwork) | `colors.toml` added to `omarchy_themes.json`; PNG 3840x2400 → WebP (q88). |
+| Sharp AQUOS Live TV package support (`jp.co.sharp.av.android.aquostvapp`) & bug reports (Issue #3, MR !1) | Anderson Leite (`@anderson-leite`) | https://gitlab.com/piermark/omarchytv/-/merge_requests/1 | MIT | Integrated `live_tv_packages` array and `MainActivity.liveTvPackage(Context)`. |
 | Default Tokyo Night wallpaper `wallpapers/tokyo-night/01-liftoff-sunset.webp`: **"Liftoff Sunset"** | Tom Ballard ([@tcballard](https://x.com/tcballard)); original photograph SpaceX (public domain per the author) | https://github.com/tcballard/omarchy-theme-tokyo-liftoff (`backgrounds/01-liftoff-sunset.png`, see its CREDITS.md) | Image: included with the author's permission granted on X on Oct 22, 2026 (the theme's MIT covers configuration only) | PNG 8192x4608 → WebP 3840x2160 (q88). |
 | ttfx (reference for screensaver behaviour, via tte.js) | 37signals / omacom | https://github.com/omacom/ttfx | MIT + NOTICE, `licenses/ttfx-*` | none (no ttfx code bundled; notice kept). |
 
