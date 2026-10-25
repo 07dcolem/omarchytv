@@ -1,6 +1,6 @@
 # OmarchyTV Launcher (`com.omarchytv.home`)
 
-An Omarchy desktop-styled home screen for Android TV (`Copyright (c) 2026 Marco Porro`, MIT), initially inspired by the `tv-vibehack` / `cleanyourtv` concept by Gathin.
+An Omarchy desktop-styled home screen for Android TV (`Copyright (c) 2026 Marco Porro (@MarcoPorro · https://marcoporro.it)`, MIT). Inspired by `tv-vibehack` by Gathin.
 
 **Package:** `com.omarchytv.home`.
 `minSdk 26` (Android 8.0), `targetSdk 29`, compileSdk 34.

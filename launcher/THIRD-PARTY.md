@@ -1,2 +1,6 @@
 # Third-party code and credits
-Moved to the repository root: [../THIRD-PARTY.md](../THIRD-PARTY.md) and [../NOTICE](../NOTICE).
+
+OmarchyTV — Copyright (c) 2026 [Marco Porro](https://marcoporro.it) ([@MarcoPorro](https://x.com/MarcoPorro) · https://marcoporro.it), MIT.
+Inspired by [tv-vibehack](https://github.com/Gathin23/tv-vibehack) by Gathin.
+
+Full third-party credits and licence texts are at the repository root: [../THIRD-PARTY.md](../THIRD-PARTY.md) and [../NOTICE](../NOTICE).

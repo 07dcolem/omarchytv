@@ -2,8 +2,7 @@
 
 **An Omarchy-style home screen for Android TV, featuring a native Omarchy TUI Grok Bot assistant, 26 MIT themes with 4K wallpapers, a desktop link to your Omarchy PC / Mac, a native MCP server, and an Android smartphone wireless installer.**
 
-Created by **Marco Porro**
-· [X / @MarcoPorro](https://x.com/MarcoPorro) · [marcoporro.it](https://www.marcoporro.it)
+Created by **[Marco Porro](https://marcoporro.it)** ([@MarcoPorro](https://x.com/MarcoPorro) · [marcoporro.it](https://marcoporro.it))
 
 Published: **25 October 2026 (beta)** · Version **2.12.0-beta** (`versionCode 20` — Android TV, PC/Mac Plugin & Mobile Companion) / **2.11.0-testing** (LG webOS experimental) · License **MIT**
 
@@ -259,7 +258,7 @@ of them.
 - **[@ilafayajose](https://gitlab.com/ilafayajose)** and **@wielorzeczownik**: community bug reports and testing.
 
 ## Credits and Third-Party Software
-- **tv-vibehack / cleanyourtv** by Gathin ([github.com/Gathin23/tv-vibehack](https://github.com/Gathin23/tv-vibehack), MIT): initial concept inspiration.
+- Inspired by **[tv-vibehack](https://github.com/Gathin23/tv-vibehack)** by Gathin (MIT).
 - **Omarchy** by David Heinemeier Hansson and contributors ([github.com/basecamp/omarchy](https://github.com/basecamp/omarchy), MIT): logo, icon, theme palettes, wordmark backgrounds, plus **[`omarchy-jade-horse-theme`](https://github.com/dhh/omarchy-jade-horse-theme)** and **[`omarchy-year-of-the-horse-theme`](https://github.com/dhh/omarchy-year-of-the-horse-theme)** (MIT).
 - **[`omarchy-hermarchy-theme`](https://github.com/archer-clawbot/omarchy-hermarchy-theme)** by Archer Clawbot (MIT).
 - **[`omarchy-last-horizon-theme`](https://github.com/containerscrew/omarchy-last-horizon-theme)** and **[`omarchy-solitude-theme`](https://github.com/containerscrew/omarchy-solitude-theme)** by containerscrew (MIT palettes + Omarchy wordmark 4K wallpapers).
@@ -277,4 +276,4 @@ Third-party wallpapers whose licence could not be verified are **not** included.
 
 ## License
 MIT, see [LICENSE](LICENSE).
-Copyright (c) 2026 Marco Porro (OmarchyTV).
+Copyright (c) 2026 Marco Porro ([@MarcoPorro](https://x.com/MarcoPorro) · [https://marcoporro.it](https://marcoporro.it)).
