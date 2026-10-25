@@ -33,7 +33,6 @@ class T(unittest.TestCase):
     def test_ipk_real_package(self):
         candidates = [
             os.path.join(os.path.dirname(__file__), "..", "..", "..", "webos", "releases", "omarchytv-webos-2.11.0-testing.ipk"),
-            "/workspace/omarchytv-webos/omarchytv-webos-2.11.0-testing.ipk",
         ]
         for ipk_path in candidates:
             if os.path.isfile(ipk_path):
