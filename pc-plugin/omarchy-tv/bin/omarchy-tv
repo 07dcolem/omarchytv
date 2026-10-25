@@ -12,6 +12,7 @@
   omarchy-tv webos-serve [--port 8765] [--bind 0.0.0.0]
                                         LAN HTTP server for LG webOS TVs (/v1/status, /v1/themes, /v1/wallpaper)
   omarchy-tv stats                      show the stats pushed every 5 s while the TV home is visible
+  omarchy-tv mcp [--stdio|--http] [--port 8990] [--tunnel]   MCP server for Grok Bot / Claude / Hermes
 """
 import os, sys
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -25,7 +26,7 @@ for cand in (os.environ.get("OMARCHY_LINK_LIB"), os.path.expanduser("~/.local/sh
         if os.path.isfile(exe):
             os.environ.setdefault("OMARCHY_LINK_BIN", os.path.realpath(exe))
         break
-from omarchy_tv import ui, themes, update, banners, webos  # noqa: E402
+from omarchy_tv import ui, themes, update, banners, webos, mcp_server  # noqa: E402
 from omarchy_tv.i18n import t  # noqa: E402
 
 MENU = [("󰍹  " + t("menu.status"), "status"), ("󰌘  " + t("menu.pair"), "pair"), ("󰖟  " + t("menu.webos"), "webos-serve"),
@@ -166,6 +167,11 @@ def main(argv):
         return cmd_icons(rest)
     if cmd in ("webos-serve", "webos"):
         return cmd_webos_serve(rest)
+    if cmd == "mcp":
+        port = int(rest[rest.index("--port") + 1]) if "--port" in rest else 8990
+        if "--http" in rest or "--tunnel" in rest:
+            return mcp_server.serve_http(client, port=port, tunnel="--tunnel" in rest)
+        return mcp_server.serve_stdio(client)
     if cmd == "stats":
         from omarchy_link import stats, config
         ui.say(str(stats.payload(config.load_config())))

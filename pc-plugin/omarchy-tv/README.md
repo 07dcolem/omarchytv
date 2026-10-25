@@ -1,84 +1,48 @@
-# omarchy-tv — front-end Omarchy per OmarchyTV / Omarchy front-end for OmarchyTV
+# omarchy-tv — Omarchy Front-End & MCP Bridge for OmarchyTV (`2.12.0-beta`)
 
-Comando `omarchy-tv`, costruito sopra **omarchy-link** (pairing, link firmato, sessione Waybar). MIT, © 2026 Marco Porro.
-Solo libreria standard Python; Pillow facoltativo (sfondi → WebP), altrimenti ffmpeg.
+`omarchy-tv` is the desktop CLI and menu front-end built on top of **omarchy-link** (SPAKE2 pairing, HMAC-signed link, Waybar session). MIT License, © 2026 Marco Porro.
+Pure Python 3.10+ standard library; optional Pillow (backgrounds → WebP) or ffmpeg.
 
-| Comando | Cosa fa |
+| Command | Description |
 |---|---|
-| `omarchy-tv` / `menu` | menu Walker (dmenu, stile `omarchy-menu`), poi `gum choose`, poi lista numerata; colori del tema attivo; notifiche `notify-send` (mako) |
-| `pair`, `status`, `cast`, `remote KEY` | delega a `omarchy-link` |
-| `themes list / push NAME / push --all / select NAME [BG] / delete NAME` | temi utente `~/.config/omarchy/themes/*` → TV (`PUT /v1/themes/<name>`, ZIP: theme.json + backgrounds ≤3840×2160), max **50 MB** in totale sulla TV |
-| `icons list / push [PACKAGE\|--all] / delete PACKAGE` | banner PNG personalizzati da `~/.config/omarchy-tv/banners/<package>.png` |
-| `screen start [--audio] / stop` | "Schermo PC" live (opt-in): gpu-screen-recorder (hw) o wf-recorder (VAAPI se c'è, altrimenti x264 ultrafast/zerolatency) → H.264 MPEG-TS, URL monouso solo per l'IP della TV abbinata; la TV lo riproduce con ExoPlayer (buffer ~0.5 s). Avvio/stop anche dalla TV (icona monitor), il PC chiede conferma |
-| `update <APK\|IPK> [--tv IP:5555\|DEVICE] [--yes] [--dry-run]` | **Android (`.apk`)**: solo adb (`install -r`, mai `-d`/uninstall), rifiuta cert ≠ `90aa68d9…a33d` o versionCode non maggiore. **LG webOS (`.ipk`)**: verifica `appinfo.json` (`id == com.omarchytv.home`) e installa con `ares-install` |
-| `webos-serve [--port 8765] [--bind 0.0.0.0]` | server HTTP LAN leggero per TV LG webOS (`/v1/status`, `/v1/themes`, `/v1/wallpaper`) con CORS abilitato |
-| `stats` | mostra il payload; la sessione omarchy-link lo invia **ogni 5 s solo con la home TV visibile** (`statsIntervalS`) |
+| `omarchy-tv` / `menu` | Interactive menu via `omarchy-menu-select` (Omarchy 4.5+), `walker --dmenu`, `gum choose`, or numbered terminal list; uses active theme colors and `notify-send` |
+| `pair`, `status`, `cast`, `remote KEY` | Delegates to `omarchy-link` |
+| `themes list / push NAME / push --all / select NAME [BG] / delete NAME` | Syncs all **26 MIT Omarchy themes** and user themes in `~/.config/omarchy/themes/*` → TV (`PUT /v1/themes/<name>`, ZIP: `theme.json` + backgrounds ≤3840×2160, max **50 MB** total on TV) |
+| `icons list / push [PACKAGE\|--all] / delete PACKAGE` | Custom 16:9 PNG app banners from `~/.config/omarchy-tv/banners/<package>.png` |
+| `mcp [--stdio\|--http] [--port 8990] [--tunnel]` | **MCP Server (JSON-RPC 2.0)** exposing TV tools (`tv_get_status`, `tv_list_themes`, `tv_set_theme`, `tv_send_key`, `tv_launch_app`, `tv_cast_media`, `tv_show_notification`, `tv_open_ai_webapp`). HTTP mode binds to `127.0.0.1:8990` with a 256-bit Bearer token (`~/.config/omarchy-tv/mcp-token`, `0600`) |
+| `screen start [--audio] / stop` | Live PC screen sharing ("PC Screen", opt-in): `gpu-screen-recorder` (hw) or `wf-recorder` → H.264 MPEG-TS over one-time LAN URL for the paired TV IP; ExoPlayer ~0.5 s low-latency playback |
+| `update <APK\|IPK> [--tv IP:5555\|DEVICE] [--yes] [--dry-run]` | **Android TV (`.apk`)**: `adb install -r` only (never `-d` or uninstall), verifies signer cert `90aa68d9…a33d` and monotonic `versionCode`. **LG webOS (`.ipk`)**: verifies `appinfo.json` (`id == com.omarchytv.home`) and installs via `ares-install` |
+| `webos-serve [--port 8765] [--bind 0.0.0.0]` | Lightweight LAN HTTP + CORS bridge for LG webOS TVs (`/v1/status`, `/v1/themes`, `/v1/wallpaper`) |
+| `stats` | Prints the live telemetry payload sent every 5 s while the TV home screen is visible (`statsIntervalS`) |
 
-Config omarchy-link (`~/.config/omarchy-link/config.json`): `screenAudio` (false), `screenFps` (30), `screenHwEncode` (true),
-`screenMirrorFromTv` ("confirm" | "allow" | "off"), `statsIntervalS` (5).
+## MCP Server (`omarchy-tv mcp`) & Direct TV `/mcp`
 
-## Perché non Miracast vero / why not real Miracast
-Miracast = Wi-Fi Direct P2P + RTSP/RTP + HDCP. Su Linux il P2P dipende da driver/firmware della scheda (spesso niente
-P2P GO concorrente con la Wi-Fi normale), da wpa_supplicant/iwd con P2P abilitato e da uno stack sorgente (gnome-network-displays,
-MiracleCast) che non è mantenuto in modo affidabile su Hyprland; molte TV Android (Sony incluse) accettano solo sorgenti
-certificate e la connessione P2P scollega spesso la Wi-Fi del PC. Lo streaming H.264 sulla LAN tramite il link già abbinato
-dà latenza simile (0.5–1.5 s attesi su hardware reale), funziona con qualsiasi scheda e resta cifrato/autorizzato dal pairing
-per il controllo (lo stream video è HTTP in chiaro sulla LAN, URL casuale monouso, solo l'IP della TV).
+Starting in **2.12.0-beta**, both the TV launcher (`POST http://<tv-ip>:8999/mcp`) and the PC plugin (`omarchy-tv mcp`) speak the **Model Context Protocol (MCP, `2024-11-05`, JSON-RPC 2.0)** so **Grok Bot**, **Claude Desktop**, **Cursor**, **Hermes**, or any MCP client can inspect and control the TV safely:
 
-## Custom app icons
+- **Available MCP Tools (strict TV-only whitelist):**
+  - `tv_get_status`: Active theme, wallpaper, workspace, volume, and capabilities.
+  - `tv_list_themes`: All 26 built-in MIT Omarchy themes + any custom themes installed on the TV.
+  - `tv_set_theme`: Switch the TV to any theme (e.g. `jade-horse`, `year-of-the-horse`, `hermarchy`, `tokyo-night`) and optional wallpaper.
+  - `tv_send_key`: Send D-pad/remote keys (`home`, `back`, `up`, `down`, `left`, `right`, `select`, `play_pause`, `mute`, `volume_up`, `volume_down`, `menu`, `1`..`5`).
+  - `tv_launch_app`: Launch an installed Android TV package or built-in WebApp (`web:grok-bot`, `web:chatgpt`, `web:claude`, `web:hermes`).
+  - `tv_open_ai_webapp`: Open `grok-bot`, `grok-x`, `chatgpt`, `claude`, or `hermes` directly on the TV screen.
+  - `tv_cast_media`: Cast a video/audio/image URL or text note to the TV.
+  - `tv_show_notification`: Display a terminal toast notification on the TV screen.
+- **Security:** `omarchy-tv mcp --http` binds strictly to `127.0.0.1` by default and requires `Authorization: Bearer <token>` using the 256-bit random token generated at `~/.config/omarchy-tv/mcp-token` (permissions `0600`). No arbitrary shell execution or filesystem tools exist.
 
-Since **2.11.0-beta** you can replace the tile image (banner) of any app on the TV home with your own PNG.
-It needs **launcher 2.11.0 or newer** on the TV; with an older launcher `omarchy-tv icons` says
-"This TV launcher has no custom banners yet: update OmarchyTV." Without a custom file, the app's own banner is used.
+## Custom App Icons (Banners)
 
-**1. Find the app's package name.** On a paired PC, `omarchy-link apps` prints every TV app as `label<TAB>package`.
-Without the plugin: `adb shell pm list packages` (e.g. Netflix is `com.netflix.ninja`).
+Since **2.11.0-beta+**, you can replace any app's tile banner on the TV home screen with your own 16:9 PNG (`≤ 1 MB`):
 
-**2. Make the image.** PNG only (checked by its signature), **max 1 MB**. Tiles are 16:9 (198×111 dp at the
-largest size) and the image fills the tile with a centre crop, so use 16:9: 320×180 (the Android TV banner size)
-or 640×360. Larger images are scaled down to about 640 px wide.
-
-**3. Put it on the PC** as `~/.config/omarchy-tv/banners/<package>.png`, e.g.
-`~/.config/omarchy-tv/banners/com.netflix.ninja.png`. Files whose name is not a valid package name are ignored.
-
-**4. Send it to the TV:**
-
-| Command | What it does |
-|---|---|
-| `omarchy-tv icons` | menu: push, list or delete |
-| `omarchy-tv icons list` | lists the custom banners stored **on the TV** |
-| `omarchy-tv icons push PACKAGE` | sends `~/.config/omarchy-tv/banners/PACKAGE.png` (replaces the one on the TV, if any) |
-| `omarchy-tv icons push --all` (or just `push`) | sends every `<package>.png` in that folder |
-| `omarchy-tv icons delete PACKAGE` | removes it from the TV, the app's own banner comes back (without PACKAGE: pick from a list) |
-
-The TV home refreshes by itself after a push or delete. The TV keeps **up to 200** custom banners.
-
-**Without the PC plugin** you can copy the file with adb into the launcher's files folder:
-
-```sh
-adb push com.netflix.ninja.png /sdcard/Android/data/com.omarchytv.home/files/banners/com.netflix.ninja.png
-```
-
-It shows up the next time you return to the home screen; delete the file to go back to the original banner.
-
-Use only images you have the right to use (your own artwork, or images whose licence allows it). Nothing is
-downloaded or bundled: OmarchyTV shows only the files you provide.
-
-## LG webOS support (`2.11.0-testing`)
-
-For LG webOS TVs running `omarchytv-webos-2.11.0-testing.ipk`:
-- **Install / update `.ipk` on the TV**: `omarchy-tv update omarchytv-webos-2.11.0-testing.ipk --tv lgtv` (validates the Debian `ar` archive and `appinfo.json` `id == com.omarchytv.home`, then installs via `ares-install` and launches via `ares-launch`).
-- **Live PC status & theme bridge**: `omarchy-tv webos-serve --port 8765` runs a lightweight LAN HTTP server exposing `/v1/status`, `/v1/themes`, and `/v1/wallpaper` with CORS headers so your LG webOS TV can display live PC CPU/RAM, theme, and AI credit stats in real time.
+1. Find the package name: `omarchy-link apps` (or `adb shell pm list packages`).
+2. Save a 16:9 PNG (`320×180` or `640×360`) as `~/.config/omarchy-tv/banners/<package>.png`.
+3. Push to the TV: `omarchy-tv icons push <package>` or `omarchy-tv icons push --all` (or via ADB: `adb push <pkg>.png /sdcard/Android/data/com.omarchytv.home/files/banners/<pkg>.png`).
 
 ## Language
 
-The menus and messages follow the PC language automatically (`LC_ALL` > `LC_MESSAGES` > `LANG`).
-Italian and English are supported; any other language falls back to English.
+Menus and messages follow the system language automatically (`LC_ALL` > `LC_MESSAGES` > `LANG`, supporting English and Italian), or `"language": "en" | "it" | "auto"` in `~/.config/omarchy-link/config.json`.
 
-To force one, set `"language": "it"`, `"en"` or `"auto"` (the default) in `~/.config/omarchy-link/config.json`,
-or for a single run: `LC_ALL=it_IT.UTF-8 omarchy-tv`.
-
-`omarchy-link` messages are English-only for now.
-
-## Test
-`python3 -m unittest discover -s tests -v` (senza TV).
+## Unit Tests
+```bash
+python3 -m unittest discover -s tests -v
+```
