@@ -619,7 +619,7 @@
       };
     });
     var curIdx = names.indexOf(cfg.theme);
-    openModal(tr("sys_themes") + " (23 stock Omarchy 2.11.0)", "Select a theme (MIT omarchy.webp + Liftoff Sunset)", items);
+    openModal(tr("sys_themes") + " (26 MIT Omarchy 2.12.0)", "Select a theme (MIT omarchy.webp + Liftoff Sunset)", items);
     if (curIdx >= 0) { state.modalIdx = curIdx; renderModalList(); }
   }
 

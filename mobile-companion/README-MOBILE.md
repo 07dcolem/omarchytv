@@ -1,24 +1,25 @@
-# OmarchyTV Mobile (`com.omarchytv.mobile` v2.11.0-beta)
+# OmarchyTV Mobile (`com.omarchytv.mobile` v2.12.0-beta)
 
-**OmarchyTV Mobile** (`omarchytv-mobile-2.11.0-beta.apk`) is the official 100% original MIT-licensed Android smartphone companion and wireless installer for **OmarchyTV**, supporting **Android TV / Google TV, LG webOS, Samsung Tizen, Hisense VIDAA, and all Smart TVs**.
+**OmarchyTV Mobile** (`omarchytv-mobile-2.12.0-beta.apk`) is the official 100% original MIT-licensed Android smartphone companion and wireless installer for **OmarchyTV**, supporting **Android TV / Google TV, LG webOS, Samsung Tizen, Hisense VIDAA, and all Smart TVs**.
 
-- **GitLab Release Page:** **[v2.11.0-beta-mobile](https://gitlab.com/piermark/omarchytv/-/releases/v2.11.0-beta-mobile)**
-- **Direct APK Download (`178 KB`):** **[`omarchytv-mobile-2.11.0-beta.apk`](https://gitlab.com/-/project/87958120/uploads/2e42e43b2bf7aacc24697002c1f39d86/omarchytv-mobile-2.11.0-beta.apk)** (SHA-256: `cb51e5014d8c80311323361dc231ecbbf774238462f1b900adb6ca9e3c89ef21`)
+- **GitLab Releases Page:** **[gitlab.com/piermark/omarchytv/-/releases](https://gitlab.com/piermark/omarchytv/-/releases)**
+- **Version `2.12.0-beta` (`versionCode 21200`, `178 KB`):** `omarchytv-mobile-2.12.0-beta.apk` (SHA-256: `42bb62aa6169c52afacc9b477d25f6f95fffe2eeea9f779394606e1a4e5ad0a4`, Signing Cert SHA-256: `90aa68d9f45e623eadfd349ab1eb66042356f95ff6347a4568c3f3a78f8ea33d`)
+- **Includes all 26 MIT Omarchy themes** (`jade-horse`, `year-of-the-horse`, `hermarchy`, `last-horizon`, `solitude`, `starship`, `tokyo-night`, and more) in both the native phone theme switcher and the embedded `/tv` Universal WebTV launcher.
 
 ## Universal Smart TV Architecture
 
 1. **Android TV / Google TV (`ADB :5555` + `omarchy-link :8999` / `:47800`):**
    - **Parallel `/24` LAN Subnet Scanner:** Probes ports `8999` (`omarchy-link` daemon), `5555` (Wireless ADB), `47800` (Omarchy Link v1 socket), and `8001` (Samsung SmartView).
-   - **Pure-Java Wireless ADB over TCP (`AdbTcpClient.java`):** Generates a 2048-bit RSA keypair (`omarchytv@mobile\0`), encodes the 524-byte little-endian Android `RSAPublicKey` struct with Montgomery parameters, performs `CNXN` + `AUTH`, pushes `.apk` payloads via `sync:` (`SEND`/`DATA`/`DONE`/`OKAY`) to `/data/local/tmp/omarchytv.apk`, runs `pm install -r`, and pins `com.omarchytv.launcher/.HomeV29` & `com.omarchytv.home/.MainActivity`.
-   - **HMAC-SHA256 `omarchy-link` Client (`OmarchyLinkClient.java`):** Signs requests with both `Authorization: OTV1 ...` and `X-Omarchy-Signature: sha256=...` for real-time theme switching (`PUT /v1/theme`), tactile D-Pad & media remote keys (`POST /v1/remote/key`), AI/terminal prompts (`POST /v1/prompt`), custom wallpaper uploads (`PUT /v1/wallpaper`), and custom app banners (`PUT /v1/banners/<pkg>`).
+   - **Pure-Java Wireless ADB over TCP (`AdbTcpClient.java`):** Generates a 2048-bit RSA keypair (`omarchytv@mobile\0`), encodes the 524-byte little-endian Android `RSAPublicKey` struct with Montgomery parameters, performs `CNXN` + `AUTH`, pushes `.apk` payloads via `sync:` (`SEND`/`DATA`/`DONE`/`OKAY`) to `/data/local/tmp/omarchytv.apk`, runs `pm install -r`, and pins `com.omarchytv.home/.MainActivity`.
+   - **HMAC-SHA256 `omarchy-link` Client (`OmarchyLinkClient.java`):** Signs requests with both `Authorization: OTV1 ...` and `X-Omarchy-Signature: sha256=...` for real-time theme switching across all **26 MIT Omarchy themes** (`PUT /v1/theme`), tactile D-Pad & media remote keys (`POST /v1/remote/key`), AI/terminal prompts (`POST /v1/prompt`), custom wallpaper uploads (`PUT /v1/wallpaper`), and custom app banners (`PUT /v1/banners/<pkg>`).
    - **Safe Reversible Debloat (`DebloatProfiles.java`):** Uses `pm disable-user --user 0 <pkg>` and 1-tap `pm enable <pkg>` with brand profiles (`Sony Bravia`, `Google TV Streamer`, `Sharp AQUOS`, `TCL`, `Hisense`, `Xiaomi`) and an immutable `PROTECTED_PACKAGES` denylist (`com.google.android.tungsten.setupwraith`, `com.google.android.gms`, `com.google.android.apps.mediashell`, Live TV & HDMI packages).
 
 2. **LG webOS TV (`WebOsBridgeServer :8765` + `.ipk` Inspector & Server):**
-   - Runs an embedded HTTP server on port `:8765` on the phone's Wi-Fi IP implementing the exact `omarchy-tv webos-serve` JSON & CORS contract (`/v1/status`, `/v1/themes`, `/v1/wallpaper`), allowing an LG webOS TV running OmarchyTV to sync themes, wallpapers, and remote keys directly from the phone without a PC.
+   - Runs an embedded HTTP server on port `:8765` on the phone's Wi-Fi IP implementing the exact `omarchy-tv webos-serve` JSON & CORS contract (`/v1/status`, `/v1/themes`, `/v1/wallpaper`), allowing an LG webOS TV running OmarchyTV to sync all 26 MIT themes, wallpapers, and remote keys directly from the phone without a PC.
    - Fetches `v2.11.0-testing-webos` (`omarchytv-webos-2.11.0-testing.ipk`), validates the Debian `!<arch>` archive and `appinfo.json` (`id == com.omarchytv.home`), and serves `/omarchytv.ipk` over LAN HTTP.
 
 3. **Samsung Tizen, Hisense VIDAA & Universal Smart TV Mode (`http://<phone-ip>:8765/tv` + `:8001` SmartView):**
-   - Bundles the full 1080p HTML5/Canvas OmarchyTV Launcher inside `assets/webtv/` and serves it live at `http://<phone-ip>:8765/tv` with real-time theme & D-Pad remote sync from the phone.
+   - Bundles the full 1080p HTML5/Canvas OmarchyTV Launcher (with all 26 MIT themes) inside `assets/webtv/` and serves it live at `http://<phone-ip>:8765/tv` with real-time theme & D-Pad remote sync from the phone.
    - Includes a 1-tap Samsung Tizen SmartView (`:8001/api/v2/applications/org.tizen.browser`) launcher.
 
 4. **Dual-Mirror Release & Theme Resolution (`GitLabReleaseClient.java`):**
