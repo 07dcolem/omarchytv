@@ -75,6 +75,7 @@ final class AsciiMenu {
 
     private final Activity activity;
     private final PopupWindow popup;
+    private final android.widget.ScrollView scroll;
     private final LinearLayout rows;
     private final Deque<Page> stack = new ArrayDeque<>();
     private final float density;
@@ -83,6 +84,7 @@ final class AsciiMenu {
         this.activity = activity;
         density = activity.getResources().getDisplayMetrics().density;
         View panel = Theme.applied(LayoutInflater.from(activity).inflate(R.layout.popup_inputs, null, false));
+        scroll = panel.findViewById(R.id.scroll);
         rows = panel.findViewById(R.id.rows);
         Theme.apply(panel);
         panel.setBackground(Theme.cur().menuCard(density));   // Omarchy shell [menu] card
@@ -120,6 +122,19 @@ final class AsciiMenu {
         anchor.getLocationOnScreen(loc);
         int screenH = anchor.getRootView().getHeight();
         popup.setClippingEnabled(true);
+        if (screenH <= 0) screenH = activity.getResources().getDisplayMetrics().heightPixels;
+        int availBelow = screenH - loc[1] - anchor.getHeight() - gap - (int) (12 * density);
+        if (scroll != null && availBelow > (int) (180 * density)) {
+            int maxScrollH = availBelow - (int) (16 * density);
+            ViewGroup.LayoutParams lp = scroll.getLayoutParams();
+            if (lp != null) {
+                lp.height = rows.getMeasuredHeight() > maxScrollH ? maxScrollH : ViewGroup.LayoutParams.WRAP_CONTENT;
+                scroll.setLayoutParams(lp);
+            }
+            content.measure(View.MeasureSpec.makeMeasureSpec(popup.getWidth(), View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(availBelow, View.MeasureSpec.AT_MOST));
+            ph = content.getMeasuredHeight();
+        }
         if (loc[1] + anchor.getHeight() + gap + ph > screenH && loc[1] - gap - ph >= 0) {
             popup.showAsDropDown(anchor, 0, -(anchor.getHeight() + gap + ph), Gravity.START);
         } else {
@@ -150,7 +165,9 @@ final class AsciiMenu {
         for (int i = 1; i < rows.getChildCount(); i++) {
             TextView t = rows.getChildAt(i).findViewById(R.id.title);
             if (t != null && label.contentEquals(t.getText())) {
-                rows.getChildAt(i).requestFocus();
+                View target = rows.getChildAt(i);
+                target.requestFocus();
+                scrollIntoView(target, false);
                 return;
             }
         }
@@ -195,6 +212,9 @@ final class AsciiMenu {
                 rows.addView(v);
                 continue;
             }
+            v.setOnFocusChangeListener((x, hasFocus) -> {
+                if (hasFocus) scrollIntoView(x, true);
+            });
             v.setOnClickListener(x -> {
                 boolean keep = r.action != null && r.action.run(r);
                 if (!keep && stack.peek() == page && popup.isShowing()) popup.dismiss();
@@ -211,8 +231,37 @@ final class AsciiMenu {
             });
             rows.addView(v);
         }
-        rows.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        int innerW = Math.max(1, popup.getWidth() - (int) (12 * density));
+        rows.measure(View.MeasureSpec.makeMeasureSpec(innerW, View.MeasureSpec.EXACTLY), View.MeasureSpec.UNSPECIFIED);
+        if (scroll != null) {
+            int sh = activity.getResources().getDisplayMetrics().heightPixels;
+            int maxScrollH = Math.max((int) (200 * density), sh - (int) (96 * density));
+            ViewGroup.LayoutParams lp = scroll.getLayoutParams();
+            if (lp != null) {
+                lp.height = rows.getMeasuredHeight() > maxScrollH ? maxScrollH : ViewGroup.LayoutParams.WRAP_CONTENT;
+                scroll.setLayoutParams(lp);
+            }
+        }
         if (popup.isShowing()) popup.update(popup.getWidth(), ViewGroup.LayoutParams.WRAP_CONTENT);
+    }
+
+    private void scrollIntoView(View row, boolean smooth) {
+        if (scroll == null || row == null) return;
+        scroll.post(() -> {
+            int top = row.getTop();
+            int bot = row.getBottom();
+            int sy = scroll.getScrollY();
+            int vh = scroll.getHeight();
+            if (vh <= 0) return;
+            int pad = (int) (24 * density);
+            int targetY = sy;
+            if (top - pad < sy) targetY = Math.max(0, top - pad);
+            else if (bot + pad > sy + vh) targetY = bot + pad - vh;
+            if (targetY != sy) {
+                if (smooth) scroll.smoothScrollTo(0, targetY);
+                else scroll.scrollTo(0, targetY);
+            }
+        });
     }
 
     private void focusFirst() {

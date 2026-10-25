@@ -217,7 +217,9 @@ public class AsciiSaverView extends View {
         canvas.drawColor(Color.BLACK);
         if (cellRow == null || cellRow.length == 0 || getWidth() == 0) return;
         long now = SystemClock.uptimeMillis();
-        long t = frozenAt >= 0 ? frozenAt : now - cycleStart;
+        String spd = LauncherConfig.get(getContext()).screensaverSpeed;
+        float mult = "slow".equals(spd) ? 0.6f : "fast".equals(spd) ? 1.75f : 1.0f;
+        long t = frozenAt >= 0 ? frozenAt : Math.round((now - cycleStart) * mult);
         long total = IN_MS + HOLD_MS + OUT_MS;
         if (frozenAt < 0 && t >= total) {
             newCycle(true);
