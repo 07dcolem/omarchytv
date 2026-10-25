@@ -6,7 +6,7 @@ Versione / version: **2.12.0-omarchytv** (versionCode 20) · package `com.omarch
 
 | | SHA-256 |
 |---|---|
-| `omarchytv-release-2.12.0-beta.apk` | `f1426db057fdc958fe562d1afd57a710b896e2f63d4fa6c2ec6c8ceefdfee11e` |
+| `omarchytv-release-2.12.0-beta.apk` | `9dedc335fb1150afa6027f4123bd295bec8241a4c654842a6be65caff993f035` |
 | `omarchytv-release-2.11.0.apk` | `33248d55f359905dd6068bfeca16e76a02da54150a119aae3ecfa0938ddc5111` |
 | Certificato di firma / signing certificate | `90aa68d9f45e623eadfd349ab1eb66042356f95ff6347a4568c3f3a78f8ea33d` |
 
