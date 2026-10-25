@@ -72,6 +72,12 @@ def _check(name: str) -> dict | None:
     if name == "grok":
         ok = _exists(_home(".grok", "auth.json")) or "XAI_API_KEY" in os.environ or "GROK_DEPLOYMENT_KEY" in os.environ
         return {"bin": binary, "auth": "grok login"} if ok else None
+    if name == "hermes":
+        ok = _exists(_home(".hermes", "auth.json"), _home(".config", "hermes", "auth.json")) or             any(k in os.environ for k in ("HERMES_API_KEY", "NOUS_API_KEY"))
+        return {"bin": binary, "auth": "hermes login"} if ok else None
+    if name == "grok-bot":
+        ok = _exists(_home(".grok-bot", "auth.json"), _home(".config", "grok-bot", "auth.json")) or             "GROK_BOT_TOKEN" in os.environ
+        return {"bin": binary, "auth": "grok-bot login"} if ok else None
     return None
 
 
