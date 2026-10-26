@@ -87,8 +87,29 @@ window.addEventListener('mousedown',dismiss,true);
     var sc=document.createElement('script');sc.src='tte-bundle.js';
     sc.onload=function(){
       if(window.TTE&&TTE.TextEffect){var T=window.TTE;run({TextEffect:T.TextEffect,effectNames:function(){var n=T.effectNames;n=(typeof n==='function')?n():n;return (n&&n.slice)?n.slice():(T.effects?Object.keys(T.effects):[])}},'bundle')}
+      else asciiFallback('tte-bundle.js did not run');
     };
+    sc.onerror=function(){asciiFallback('tte-bundle.js failed to load')};
     document.head.appendChild(sc);
+  }
+  // Engines too old for tte-bundle.js (webOS 3.x / Chrome 38), like the Android AsciiSaverView fallback:
+  // a decrypt-style reveal of the logo, a 5 s hold, and a new random spot every cycle against burn-in.
+  function asciiFallback(why){
+    log('tte.js unavailable ('+why+'): ASCII fallback');
+    var art=clean(),glyphs='\u2591\u2592\u2593\u2588\u2584\u2580\u25a0\u25a1\u25aa\u25ab01',body=document.body;
+    whenSized(cycle);
+    function cycle(){
+      pre.textContent=art;fit();
+      var dx=Math.max(0,(innerWidth-pre.offsetWidth)/2),dy=Math.max(0,(innerHeight-pre.offsetHeight-(clk.offsetHeight?clk.offsetHeight+28:0))/2);
+      body.style.webkitTransform=body.style.transform='translate('+Math.round((Math.random()*2-1)*dx)+'px,'+Math.round((Math.random()*2-1)*dy)+'px)';
+      var step=0,steps=28;
+      var t=setInterval(function(){
+        if(++step>=steps){clearInterval(t);pre.textContent=art;setTimeout(cycle,5000);return}
+        var p=step/steps,out='';
+        for(var i=0;i<art.length;i++){var c=art[i];out+=(c==='\n'||c===' '||Math.random()<p)?c:glyphs[Math.floor(Math.random()*glyphs.length)]}
+        pre.textContent=out;
+      },65);
+    }
   }
   function boot(){
     var imp,fm=(S&&S.forceMode&&S.forceMode())||'';
