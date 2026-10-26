@@ -143,6 +143,7 @@
     <string name="web_reload">Ricarica</string>
     <string name="web_exit">Esci</string>
     <string name="web_old">Android System WebView %1$s è vecchio: aggiornalo dal Play Store per i siti moderni</string>
+    <string name="web_http_lan_only">http:// funziona solo per indirizzi della rete locale (es. http://192.168.1.20:8123); per i siti usa https://</string>
     <string name="link_paired_n">abbinati: %1$d</string>
     <string name="link_forget_short">dimentica</string>
     <string name="link_service">Servizio Link</string>
