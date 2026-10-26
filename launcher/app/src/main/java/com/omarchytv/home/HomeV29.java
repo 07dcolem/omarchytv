@@ -533,8 +533,9 @@ final class HomeV29 extends FrameLayout {
     /** Clock, fastfetch line, widgets; cheap (in-memory reads + small cached files). */
     void refresh() {
         if (cfg == null) return;
-        String d = new SimpleDateFormat("EEE d MMM", Locale.getDefault()).format(new Date()).replace(".", "").toLowerCase(Locale.getDefault());
-        String h = new SimpleDateFormat(android.text.format.DateFormat.is24HourFormat(act) ? "HH:mm" : "h:mm a", Locale.getDefault()).format(new Date());
+        Locale loc = !"auto".equals(cfg.language) && !cfg.language.isEmpty() ? new Locale(cfg.language) : Locale.getDefault();
+        String d = new SimpleDateFormat("EEE d MMM", loc).format(new Date()).replace(".", "").toLowerCase(loc);
+        String h = new SimpleDateFormat(android.text.format.DateFormat.is24HourFormat(act) ? "HH:mm" : "h:mm a", loc).format(new Date());
         clock.setText(d + "  " + h);
         long up = SystemClock.elapsedRealtime() / 60_000L;
         SpannableStringBuilder info = new SpannableStringBuilder();

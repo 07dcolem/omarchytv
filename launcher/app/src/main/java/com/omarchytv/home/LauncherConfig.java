@@ -577,6 +577,7 @@ final class LauncherConfig {
             conf.fontScale = conf.fontScale * cfg.fontScale;
             if (!"auto".equals(cfg.language) && !cfg.language.isEmpty()) {
                 java.util.Locale loc = new java.util.Locale(cfg.language);
+                java.util.Locale.setDefault(loc);
                 conf.setLocale(loc);
                 conf.setLayoutDirection(loc);
             }
