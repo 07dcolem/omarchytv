@@ -43,7 +43,8 @@ CAPS = ["theme", "wallpaper", "widgets", "ai", "apps", "launch",
 class MockTV:
     def __init__(self, data_dir: Path, code: str = "", name: str = "Mock BRAVIA", host: str = "127.0.0.1",
                  port: int = 0, pairing_open: bool = True, cast: bool = True, cast_upload_max: int = 64 << 20,
-                 cast_kinds=("url", "youtube", "video", "audio", "image", "text"), cast_play: bool = True):
+                 cast_kinds=("url", "youtube", "video", "audio", "image", "text"), cast_play: bool = True,
+                 pair_limit: bool = False):
         self.data_dir = Path(data_dir)
         (self.data_dir / "internal").mkdir(parents=True, exist_ok=True, mode=0o700)
         (self.data_dir / "files" / "link").mkdir(parents=True, exist_ok=True)
@@ -55,6 +56,8 @@ class MockTV:
         self.name = name
         self.code = code or f"{secrets.randbelow(10**6):06d}"
         self.pairing_open = pairing_open
+        self.pair_limit = pair_limit        # pair/* 1 request per 2 s per peer (§3), as the launcher enforces
+        self.pair_last: dict = {}
         self.pending: dict = {}
         self.failures = 0
         self.lock = threading.RLock()
@@ -359,6 +362,15 @@ class Handler(BaseHTTPRequestHandler):
                                     "name": tv.name, "pairingOpen": tv.pairing_open})
         if method == "POST" and path in ("/v1/pair/start", "/v1/pair/confirm"):
             body = self._body(JSON_MAX)
+            if body is not None and tv.pair_limit:
+                now, peer = time.time(), self.client_address[0]
+                with tv.lock:
+                    wait = 2.0 - (now - tv.pair_last.get(peer, 0.0))
+                    if wait <= 0:
+                        tv.pair_last[peer] = now
+                if wait > 0:
+                    return self._json(429, {"error": "rate_limited", "message": "1 pairing request per 2 s"},
+                                      extra={"Retry-After": str(int(wait + 0.999))})
             return None if body is None else self._pair(path, body)
         if method == "GET" and path == "/v1/events" and self.headers.get("Upgrade", "").lower() == "websocket":
             return self._websocket()

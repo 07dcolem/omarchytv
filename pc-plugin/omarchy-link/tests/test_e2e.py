@@ -60,6 +60,13 @@ class E2E(unittest.TestCase):
         helpers.reset_pc_state()
         self.assertEqual(cli("pair", self.target, "--code", "123456", check=False).returncode, 1)
 
+    def test_pair_with_rate_limit(self):
+        # The launcher allows pair/* once per 2 s per peer, start and confirm together: the PC waits once.
+        self.tv.pair_limit = True
+        p = self.pair()
+        self.assertTrue(p.paired)
+        self.assertEqual(len(self.tv.pcs), 1)
+
     def test_pairing_closed(self):
         self.tv.pairing_open = False
         r = cli("pair", self.target, "--code", "123456", check=False)
