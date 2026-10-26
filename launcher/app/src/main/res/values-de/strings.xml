@@ -143,6 +143,7 @@
     <string name="web_reload">Neu laden</string>
     <string name="web_exit">Beenden</string>
     <string name="web_old">Android System WebView %1$s ist alt: im Play Store aktualisieren für moderne Seiten</string>
+    <string name="web_http_lan_only">http:// funktioniert nur für Adressen im Heimnetz (z. B. http://192.168.1.20:8123); für Websites https:// verwenden</string>
     <string name="link_paired_n">gekoppelt: %1$d</string>
     <string name="link_forget_short">vergessen</string>
     <string name="link_service">Link-Dienst</string>

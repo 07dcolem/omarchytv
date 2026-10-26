@@ -22,9 +22,9 @@ import java.util.Locale;
 
 /**
  * v2.10.1: plain-HTTP reader for the paired PC's one-time cast URLs (live "Schermo PC" MPEG-TS and --serve files).
- * targetSdk 34 blocks cleartext HttpURLConnection app-wide, and a network-security exception cannot name IP
- * ranges, so this opens a socket itself, and only to a literal private / link-local address (never a host name,
- * never the internet). GET with Range, 200/206, Content-Length or read-to-close; no redirects, no chunked bodies.
+ * A network-security exception cannot name IP ranges, so this opens a socket itself, and only to a literal
+ * private / link-local address (never a host name, never the internet). Cleartext is now permitted app-wide for LAN
+ * web apps (network_security_config.xml); allowed() is the same gate WebAppActivity uses. GET with Range, 200/206, Content-Length or read-to-close; no redirects, no chunked bodies.
  */
 @OptIn(markerClass = UnstableApi.class)
 final class LanHttpDataSource extends BaseDataSource {

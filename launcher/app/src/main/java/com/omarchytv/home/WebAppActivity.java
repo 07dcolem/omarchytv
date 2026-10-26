@@ -17,6 +17,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.CookieManager;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -129,6 +130,16 @@ public class WebAppActivity extends Activity {
                 } catch (Exception ignored) {
                 }
                 return true;
+            }
+
+            /** http:// only to a literal LAN address (network_security_config.xml), every request, page or not. */
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
+                Uri u = req.getUrl();
+                if (!"http".equals(u.getScheme()) || LanHttpDataSource.allowed(u)) return null;
+                byte[] body = getString(R.string.web_http_lan_only).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                return new WebResourceResponse("text/plain", "utf-8", 403, "Forbidden", null,
+                        new java.io.ByteArrayInputStream(body));
             }
 
             @Override
