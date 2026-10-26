@@ -230,7 +230,7 @@ An experimental **`testing`** edition for **LG webOS TVs** (`omarchytv-webos-2.1
 
 ## Compatible Devices
 - **Works**: Android TV and Google TV devices (Android 7+). Tested on Sony KD-55XE9005 (Android 9), Google TV Streamer (Android 14), Sharp AQUOS, and Noblex/Hisense (Android 11). Needs network debugging / adb.
-- **Experimental (`testing`)**: **LG webOS TVs** (webOS 4.0+ via Developer Mode / `webOS Dev Manager` or `ares-install`; see [webos/INSTALL-WEBOS.md](webos/INSTALL-WEBOS.md)).
+- **Experimental (`testing`)**: **LG webOS TVs** (webOS 3.x+ via Developer Mode / `webOS Dev Manager` or `ares-install`; see [webos/INSTALL-WEBOS.md](webos/INSTALL-WEBOS.md)).
 - **Universal WebTV Browser Mode**: Samsung Tizen and Hisense VIDAA via `OmarchyTV Mobile` (`http://<phone-ip>:8765/tv`).
 - **Untested**: Fire OS devices (Fire TV Stick 4K Max / 4K Plus, Android-based) and projectors with Android TV (e.g. JMGO global versions).
 - **Not supported natively**: Fire TV Stick 4K Select (Amazon Vega OS, not Android), Roku, Apple TV.
