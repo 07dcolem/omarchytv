@@ -43,6 +43,27 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="vnd.android.cursor.dir/channel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="vnd.android.cursor.item/channel" />
+        </intent>
+        <package android:name="com.sony.dtv.tvx" />
+        <package android:name="jp.co.sharp.av.android.aquostvapp" />
+        <package android:name="com.google.android.tv" />
+        <package android:name="com.android.tv" />
+        <package android:name="org.dtvkit.inputsource" />
+        <package android:name="com.tcl.tv" />
+        <package android:name="com.hisense.tv.livetv" />
+        <package android:name="com.philips.tv.tvapp" />
+        <package android:name="org.droidtv.playtv" />
+        <package android:name="org.droidtv.tv" />
+        <package android:name="org.droidtv.channels" />
+        <package android:name="org.droidtv.zapster" />
+        <package android:name="org.droidtv.eum" />
     </queries>
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />

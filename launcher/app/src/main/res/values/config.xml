@@ -31,6 +31,11 @@
         <item>com.tcl.tv</item>
         <item>com.hisense.tv.livetv</item>
         <item>com.philips.tv.tvapp</item>
+        <item>org.droidtv.playtv</item>
+        <item>org.droidtv.tv</item>
+        <item>org.droidtv.channels</item>
+        <item>org.droidtv.zapster</item>
+        <item>org.droidtv.eum</item>
     </string-array>
     <!-- Xiaomi / MediaTek sets: com.mediatek.wwtv.tvcenter -->
 

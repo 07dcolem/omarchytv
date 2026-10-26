@@ -509,6 +509,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
     private List<HomeV29.Source> tvSources() {
         List<HomeV29.Source> out = new ArrayList<>();
         if (liveTvIntent() != null) out.add(new HomeV29.Source("TV", str(R.string.live_tv), R.drawable.ln_monitor, this::onTvClick));
+        out.addAll(hdmiSources());
+        return out;
+    }
+
+    /** Connected HDMI / HDMI-CEC passthrough sources from TvInputManager. */
+    private List<HomeV29.Source> hdmiSources() {
+        List<HomeV29.Source> out = new ArrayList<>();
         TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
         if (tim == null) return out;
         List<TvInputInfo> all;
@@ -1248,11 +1255,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
         btnWifi.setText(text);
     }
 
-    private void open(Intent i) {
+    private boolean tryOpen(Intent i) {
+        if (i == null) return false;
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
             startActivity(i);
-        } catch (ActivityNotFoundException e) {
+            return true;
+        } catch (ActivityNotFoundException | SecurityException e) {
+            return false;
+        }
+    }
+
+    private void open(Intent i) {
+        if (!tryOpen(i)) {
             Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
         }
     }
@@ -3042,7 +3057,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
      * last channel watched. Falls back to any Live TV handler (TvContract.Channels content). Null when the
      * TV has neither (e.g. an emulator or a box without a tuner).
      */
-    /** Detects the installed Live TV package from config.xml (Sony, Sharp AQUOS, Google TV, Android TV, etc.). */
+    /** Detects the installed Live TV package from config.xml (Sony, Sharp AQUOS, Philips TP Vision, Google TV, etc.). */
     static String liveTvPackage(Context c) {
         PackageManager pm = c.getPackageManager();
         List<String> candidates = new ArrayList<>();
@@ -3051,6 +3066,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
         for (String pkg : c.getResources().getStringArray(R.array.live_tv_packages)) {
             pkg = pkg.trim();
             if (!pkg.isEmpty() && !candidates.contains(pkg)) candidates.add(pkg);
+        }
+        // Prefer an installed candidate with a direct Leanback or standard launch intent.
+        for (String pkg : candidates) {
+            if (pm.getLeanbackLaunchIntentForPackage(pkg) != null || pm.getLaunchIntentForPackage(pkg) != null) {
+                return pkg;
+            }
         }
         for (String pkg : candidates) {
             try {
@@ -3062,17 +3083,60 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
         return primary;
     }
 
-    private Intent liveTvIntent() {
+    private Intent liveTvAppIntent() {
         PackageManager pm = getPackageManager();
-        if (!liveTvPkg.isEmpty()) {
-            Intent i = pm.getLeanbackLaunchIntentForPackage(liveTvPkg);
-            if (i == null) i = pm.getLaunchIntentForPackage(liveTvPkg);
+        List<String> pkgs = new ArrayList<>();
+        if (!liveTvPkg.isEmpty()) pkgs.add(liveTvPkg);
+        for (String pkg : getResources().getStringArray(R.array.live_tv_packages)) {
+            pkg = pkg.trim();
+            if (!pkg.isEmpty() && !pkgs.contains(pkg)) pkgs.add(pkg);
+        }
+        for (String pkg : pkgs) {
+            Intent i = pm.getLeanbackLaunchIntentForPackage(pkg);
+            if (i == null) i = pm.getLaunchIntentForPackage(pkg);
             if (i == null) {
-                Intent tvAct = new Intent(Intent.ACTION_MAIN).setClassName(liveTvPkg, liveTvPkg + ".TvActivity");
+                Intent tvAct = new Intent(Intent.ACTION_MAIN).setClassName(pkg, pkg + ".TvActivity");
                 if (tvAct.resolveActivity(pm) != null) i = tvAct;
             }
             if (i != null) return i;
         }
+        return null;
+    }
+
+    private Intent systemTunerIntent() {
+        TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
+        if (tim == null) return null;
+        PackageManager pm = getPackageManager();
+        String tunerId = null;
+        try {
+            for (TvInputInfo info : tim.getTvInputList()) {
+                if (info.getType() == TvInputInfo.TYPE_TUNER) {
+                    boolean sys = info.getServiceInfo() != null
+                            && info.getServiceInfo().applicationInfo != null
+                            && (info.getServiceInfo().applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
+                    if (tunerId == null || (sys && info.getId().compareTo(tunerId) < 0)) {
+                        tunerId = info.getId();
+                    }
+                }
+            }
+        } catch (RuntimeException ignored) {
+        }
+        if (tunerId == null) return null;
+        Intent base = new Intent(Intent.ACTION_VIEW)
+                .setDataAndType(TvContract.buildChannelUriForPassthroughInput(tunerId), "vnd.android.cursor.item/channel");
+        if (!liveTvPkg.isEmpty()) {
+            Intent scoped = new Intent(base).setPackage(liveTvPkg);
+            if (scoped.resolveActivity(pm) != null) return scoped;
+        }
+        return base.resolveActivity(pm) != null ? base : null;
+    }
+
+    private Intent liveTvIntent() {
+        Intent app = liveTvAppIntent();
+        if (app != null) return app;
+        Intent tuner = systemTunerIntent();
+        if (tuner != null) return tuner;
+        PackageManager pm = getPackageManager();
         Intent any = new Intent(Intent.ACTION_VIEW, TvContract.Channels.CONTENT_URI);
         return any.resolveActivity(pm) != null ? any : null;
     }
@@ -3103,12 +3167,24 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
 
     @Override
     public void onTvClick() {
-        Intent i = liveTvIntent();
-        if (i == null) {
-            Toast.makeText(this, R.string.no_inputs, Toast.LENGTH_SHORT).show();
+        // 1. Try dedicated OEM / Android TV Live TV app activity first (Sony, Sharp, Philips PlayTV, etc.).
+        if (tryOpen(liveTvAppIntent())) return;
+        // 2. If the user watches TV via an external digibox/STB on HDMI (e.g. Philips TPM171E in Issue #2),
+        //    open the single connected HDMI/CEC source directly, or switch to Workspace 2 (Sources) if multiple.
+        List<HomeV29.Source> hdmi = hdmiSources();
+        if (hdmi.size() == 1) {
+            hdmi.get(0).open.run();
             return;
         }
-        open(i);
+        if (hdmi.size() > 1) {
+            if (home != null) setWorkspace(2);
+            else showInputs();
+            return;
+        }
+        // 3. Fall back to the system DVB/ATSC tuner passthrough URI or generic TIF channels URI.
+        if (tryOpen(systemTunerIntent())) return;
+        if (tryOpen(new Intent(Intent.ACTION_VIEW, TvContract.Channels.CONTENT_URI))) return;
+        Toast.makeText(this, R.string.no_inputs, Toast.LENGTH_SHORT).show();
     }
 
     @Override
