@@ -8,7 +8,7 @@ Audit date: 2026-10-25. Per-background provenance: `launcher/WALLPAPER-PROVENANC
 ## 1. Project origin & inspiration
 | Item | Author | Source | Licence | Notes |
 |---|---|---|---|---|
-| OmarchyTV (`com.omarchytv.home`, `pc-plugin/`, `mobile-companion/`, `webos/`) | [Marco Porro](https://www.marcoporro.it) ([x.com/MarcoPorro](https://x.com/MarcoPorro)) | https://gitlab.com/piermark/omarchytv | MIT, `LICENSE` (`Copyright (c) 2026 Marco Porro (x.com/MarcoPorro · www.marcoporro.it)`) | Original work and sole copyright of Marco Porro. |
+| OmarchyTV (`com.omarchytv.home`, `pc-plugin/`, `mobile-companion/`, `webos/`) | [Marco Porro](https://www.marcoporro.it) ([x.com/MarcoPorro](https://x.com/MarcoPorro)) | https://github.com/piermark/omarchytv · https://gitlab.com/piermark/omarchytv | MIT, `LICENSE` (`Copyright (c) 2026 Marco Porro (x.com/MarcoPorro · www.marcoporro.it)`) | Original work and sole copyright of Marco Porro. |
 | tv-vibehack / cleanyourtv (inspiration) | Gathin (Gathin23) | https://github.com/Gathin23/tv-vibehack (renamed cleanyourtv) | MIT | Inspired by tv-vibehack by Gathin; no copyright claimed over OmarchyTV. |
 | Free My TV (`LocalAdb.java` port of `Adb.java`; watchdog and home-mode ideas) | Free My TV contributors | https://github.com/simbasjungles/free-my-tv | MIT, `licenses/FREE-MY-TV-MIT.txt` | Ported to the launcher's package, adapted to its config. |
 

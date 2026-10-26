@@ -9,7 +9,8 @@ Python 3.10+ standard library only. Optional: Pillow (backgrounds → WebP), ffm
 
 ## Install on an Omarchy PC or macOS
 ```bash
-git clone https://gitlab.com/piermark/omarchytv.git omarchytv && cd omarchytv/pc-plugin
+git clone https://github.com/piermark/omarchytv.git omarchytv && cd omarchytv/pc-plugin
+# (or from GitLab mirror: git clone https://gitlab.com/piermark/omarchytv.git omarchytv && cd omarchytv/pc-plugin)
 mkdir -p ~/.local/share ~/.local/bin
 cp -r omarchy-link ~/.local/share/omarchy-link          # omarchy-tv also finds it here
 cp -r omarchy-tv   ~/.local/share/omarchy-tv

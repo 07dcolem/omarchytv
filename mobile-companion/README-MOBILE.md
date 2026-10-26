@@ -2,7 +2,7 @@
 
 **OmarchyTV Mobile** (`omarchytv-mobile-2.12.0-beta.apk`) is the official 100% original MIT-licensed Android smartphone companion and wireless installer for **OmarchyTV**, supporting **Android TV / Google TV, LG webOS, Samsung Tizen, Hisense VIDAA, and all Smart TVs**.
 
-- **GitLab Releases Page:** **[gitlab.com/piermark/omarchytv/-/releases](https://gitlab.com/piermark/omarchytv/-/releases)**
+- **Official Releases Mirrors:** **[github.com/piermark/omarchytv/releases](https://github.com/piermark/omarchytv/releases)** · **[gitlab.com/piermark/omarchytv/-/releases](https://gitlab.com/piermark/omarchytv/-/releases)**
 - **Version `2.12.0-beta` (`versionCode 21200`, `178 KB`):** `omarchytv-mobile-2.12.0-beta.apk` (SHA-256: `42bb62aa6169c52afacc9b477d25f6f95fffe2eeea9f779394606e1a4e5ad0a4`, Signing Cert SHA-256: `90aa68d9f45e623eadfd349ab1eb66042356f95ff6347a4568c3f3a78f8ea33d`)
 - **Includes all 26 MIT Omarchy themes** (`jade-horse`, `year-of-the-horse`, `hermarchy`, `last-horizon`, `solitude`, `starship`, `tokyo-night`, and more) in both the native phone theme switcher and the embedded `/tv` Universal WebTV launcher.
 

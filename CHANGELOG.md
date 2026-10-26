@@ -50,7 +50,7 @@
 - **LG webOS Phone Bridge & Universal WebTV Server (`WebOsBridgeServer.java`):** Embedded `:8765` HTTP bridge server implementing `/v1/status`, `/v1/themes`, `/v1/wallpaper`, `/omarchytv.ipk` (with Debian `!<arch>` and `appinfo.json` inspector), and `/tv` Universal 1080p HTML5/Canvas OmarchyTV Launcher for Samsung Tizen (`:8001` SmartView auto-launch) and Hisense VIDAA TVs.
 - **Dual-Mirror Release & Theme Client (`GitLabReleaseClient.java`):** Resolves `.apk` and `.ipk` releases and live `omarchy_themes.json` across both GitLab (`projects/87958120`) and GitHub (`piermark/omarchytv`) with SHA-256 verification.
 
-All OmarchyTV releases stay available on the [Releases page](https://gitlab.com/piermark/omarchytv/-/releases).
+All OmarchyTV releases stay available on both [GitHub Releases](https://github.com/piermark/omarchytv/releases) and [GitLab Releases](https://gitlab.com/piermark/omarchytv/-/releases).
 Every APK is signed with the same certificate (SHA-256 `90aa68d9f45e623eadfd349ab1eb66042356f95ff6347a4568c3f3a78f8ea33d`),
 so each version installs over the previous one.
 
