@@ -810,6 +810,7 @@
   }
 
   // Keyboard / LG Remote Navigation
+  var LEGACY_KEYS = { 8: "Backspace", 13: "Enter", 27: "Escape", 37: "ArrowLeft", 38: "ArrowUp", 39: "ArrowRight", 40: "ArrowDown" };
   window.addEventListener("keydown", function (e) {
     var ov = document.getElementById("saver-overlay");
     if (ov.className === "active") {
@@ -818,8 +819,9 @@
       return;
     }
 
-    var k = e.key;
     var code = e.keyCode;
+    // webOS 3.x (Chrome 38) has no KeyboardEvent.key: derive it from the remote's keyCode
+    var k = e.key || LEGACY_KEYS[code] || (code >= 48 && code <= 57 ? String(code - 48) : "");
     var isBack = (k === "Escape" || k === "Backspace" || code === 461);
 
     if (state.modalOpen) {
