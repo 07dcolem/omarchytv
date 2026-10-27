@@ -765,6 +765,9 @@
         cfg.aiCredits = cfg.aiCredits === "dollars" ? "percent" : "dollars";
         saveCfg();
         renderWidgets();
+        var row = state.modalItems[state.modalIdx];
+        if (row) row.right = cfg.aiCredits === "dollars" ? "dollars" : "percent";
+        renderModalList();
       } },
       { label: tr("sys_about"), right: "2.11.0-testing", act: openAboutModal }
     ]);
