@@ -845,7 +845,11 @@
     }
 
     if (isBack) {
-      if (state.ws !== 0) { switchWorkspace(0); e.preventDefault(); }
+      // webOS hides the app when Back (461) is not cancelled. The Home key still leaves.
+      // Back from another workspace returns to the dock; Back on the dock stays in the app.
+      if (state.ws !== 0) switchWorkspace(0);
+      e.preventDefault();
+      e.stopPropagation();
       return;
     }
 

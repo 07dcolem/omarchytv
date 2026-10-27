@@ -378,7 +378,9 @@ html, body {
 .app-tile {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  /* webOS 22 ships Chrome 87, which has no aspect-ratio. The tile face is
+     position:absolute, so without an explicit height the row collapses to the border. */
+  height: 158px;
   background: var(--t-bg-alt);
   border: 2px solid var(--t-muted);
   display: flex;
