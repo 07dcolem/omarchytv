@@ -106,6 +106,21 @@ def read_ai_credits() -> dict:
     return {"claude": "24.80", "openai": "51.20", "xai": "110.00"}
 
 
+def ai_meter() -> list:
+    """Rows from omarchy-link. A manual ai.json wins inside collect().
+
+    With no file, the collector mirrors the Omarchy Agents bar
+    (~/.local/state/omarchy/agents/usage/). Old TV builds ignore this list.
+    """
+    try:
+        from omarchy_link.ai import collect
+        data = collect()
+        rows = data.get("ai") if isinstance(data, dict) else None
+        return rows if isinstance(rows, list) else []
+    except Exception:
+        return []
+
+
 def build_status_payload() -> dict:
     ai = read_ai_credits()
     wp = current_wallpaper_path()
@@ -121,6 +136,7 @@ def build_status_payload() -> dict:
         "claude": str(ai.get("claude", "24.80")),
         "openai": str(ai.get("openai", "51.20")),
         "xai": str(ai.get("xai", "110.00")),
+        "ai": ai_meter(),
         "nowPlaying": now_playing(),
         "hasWallpaper": wp is not None,
         "deploy": "omarchytv-webos 2.11.0-testing ✓",

@@ -82,6 +82,7 @@
     promptHost: "omarchytv",
     pcHost: "",
     pcSimulated: false,
+    aiCredits: "percent",
     widgets: { term: true, weather: true, pc: true, ai: true, deploy: false },
     hiddenApps: []
   };
@@ -299,6 +300,36 @@
     return Math.round(c) + "°";
   }
 
+  function formatAiPane(s) {
+    if (!Array.isArray(s.ai)) {
+      return "Claude   $" + (s.claude || "18.40") + " left\nOpenAI   $" + (s.openai || "42.10") + " left\nxAI Grok $" + (s.xai || "95.00") + " left";
+    }
+    var mode = cfg.aiCredits === "dollars" ? "dollars" : "percent";
+    var rows = s.ai;
+    var seen = {};
+    var out = [];
+    if (mode === "percent") {
+      rows.forEach(function (e) {
+        var key = e.id || e.name;
+        if (!key || seen[key]) return;
+        var err = String(e.error || "").toLowerCase();
+        if (e.status === "error" || err.indexOf("waiting for auth") >= 0 || err.indexOf("unavailable") >= 0) return;
+        var line = e.plan || (e.used != null ? Math.round(e.used) + "% used" : "");
+        if (!line) return;
+        seen[key] = 1;
+        var label = e.plan ? String(e.name || key).split(" ")[0] : (e.name || key);
+        out.push(label + "  " + line);
+      });
+      return out.length ? out.join("\n") : "No subscription meter";
+    }
+    rows = rows.filter(function (e) { return e.unit && e.unit !== "%" && e.unit !== "tokens"; });
+    if (!rows.length) return "No dollar balances";
+    return rows.map(function (e) {
+      var rem = e.remaining != null ? e.remaining : (e.limit != null && e.used != null ? Math.round((e.limit - e.used) * 100) / 100 : null);
+      return (e.name || "balance") + "  $" + (rem != null ? rem : "?") + " left";
+    }).join("\n");
+  }
+
   function renderWidgets() {
     document.getElementById("legend-wx").textContent = tr("box_weather");
     document.getElementById("legend-pc").textContent = tr("box_pc");
@@ -326,7 +357,7 @@
       pcBody.style.color = "var(--t-fg)";
       pcBody.textContent = (s.host || "omarchy-pc") + " · " + (s.kernel || "Arch Linux") + "\nCPU " + s.cpu + "%  [████░░░░░░]\nRAM " + s.ram + "%  [██████░░░░]";
       aiBody.style.color = "var(--t-fg)";
-      aiBody.textContent = "Claude   $" + (s.claude || "18.40") + " left\nOpenAI   $" + (s.openai || "42.10") + " left\nxAI Grok $" + (s.xai || "95.00") + " left";
+      aiBody.textContent = formatAiPane(s);
       if (ws4Live) {
         ws4Live.textContent = "Connected to " + (s.host || "omarchy-pc") + " (" + (cfg.pcHost || "simulated LAN link") + ")\nCPU: " + s.cpu + "% · RAM: " + s.ram + "% · GPU: " + (s.gpu || "18%") + "\nDeploys: " + (s.deploy || "omarchytv-webos 2.11.0-testing ✓");
       }
@@ -730,6 +761,11 @@
       { label: tr("wx_title"), right: "°" + cfg.tempUnit, act: openWeatherModal },
       { label: tr("sys_saver"), right: "›", act: openSaverModal },
       { label: tr("sys_all"), right: "›", act: openAllSettingsModal },
+      { label: "AI meter", right: cfg.aiCredits === "dollars" ? "dollars" : "percent", act: function () {
+        cfg.aiCredits = cfg.aiCredits === "dollars" ? "percent" : "dollars";
+        saveCfg();
+        renderWidgets();
+      } },
       { label: tr("sys_about"), right: "2.11.0-testing", act: openAboutModal }
     ]);
   }
